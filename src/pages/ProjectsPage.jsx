@@ -44,27 +44,27 @@ function ProjectForm({ initial, onSubmit, onClose, title }) {
     <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-4">
         <div className="col-span-2">
-          <Input label="Project Name" id="name" required value={form.name} onChange={set('name')} error={errors.name} placeholder="e.g. Sunrise Tower Complex" />
+          <Input label="Project Name / ชื่อโครงการ" id="name" required value={form.name} onChange={set('name')} error={errors.name} placeholder="e.g. Sunrise Tower Complex" />
         </div>
         <div className="col-span-2">
-          <Input label="Location" id="location" required value={form.location} onChange={set('location')} error={errors.location} placeholder="City, District" />
+          <Input label="Location / สถานที่" id="location" required value={form.location} onChange={set('location')} error={errors.location} placeholder="City, District / เมือง, อำเภอ" />
         </div>
-        <Select label="Assign Project Manager (PM)" id="pmId" required value={form.pmId} onChange={set('pmId')} error={errors.pmId}>
+        <Select label="Assign Project Manager (PM) / มอบหมาย PM" id="pmId" required value={form.pmId} onChange={set('pmId')} error={errors.pmId}>
           <option value="">-- Select PM --</option>
           {pms.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
         </Select>
-        <Select label="Assign Construction Manager (CM)" id="cmId" required value={form.cmId} onChange={set('cmId')} error={errors.cmId}>
+        <Select label="Assign Construction Manager (CM) / มอบหมาย CM" id="cmId" required value={form.cmId} onChange={set('cmId')} error={errors.cmId}>
           <option value="">-- Select CM --</option>
           {cms.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
         </Select>
-        <Input label="Start Date" id="startDate" type="date" required value={form.startDate} onChange={set('startDate')} error={errors.startDate} />
-        <Input label="Finish Date" id="finishDate" type="date" required value={form.finishDate} onChange={set('finishDate')} error={errors.finishDate} />
+        <Input label="Start Date / วันเริ่มต้น" id="startDate" type="date" required value={form.startDate} onChange={set('startDate')} error={errors.startDate} />
+        <Input label="Finish Date / วันสิ้นสุด" id="finishDate" type="date" required value={form.finishDate} onChange={set('finishDate')} error={errors.finishDate} />
         <div className="col-span-2">
-          <Textarea label="Notes" id="note" value={form.note} onChange={set('note')} rows={3} placeholder="Project description or notes..." />
+          <Textarea label="Notes / หมายเหตุ" id="note" value={form.note} onChange={set('note')} rows={3} placeholder="Project description or notes... / คำอธิบายโครงการหรือหมายเหตุ" />
         </div>
       </div>
       <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
-        <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button type="button" variant="secondary" onClick={onClose}>Cancel / ยกเลิก</Button>
         <Button type="submit" variant="primary">
           <Plus size={15} /> {title}
         </Button>
@@ -105,12 +105,12 @@ export function ProjectsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-slate-800">Projects</h2>
-          <p className="text-sm text-slate-500 mt-0.5">{visibleProjects.length} project(s) found</p>
+          <h2 className="text-xl font-bold text-slate-800">Projects <span className="text-base font-medium text-slate-500">/ โครงการ</span></h2>
+          <p className="text-sm text-slate-500 mt-0.5">{visibleProjects.length} project(s) found / พบ {visibleProjects.length} โครงการ</p>
         </div>
         {canCreate && (
           <Button onClick={() => setShowCreate(true)}>
-            <Plus size={16} /> New Project
+            <Plus size={16} /> New Project / โครงการใหม่
           </Button>
         )}
       </div>
@@ -120,7 +120,7 @@ export function ProjectsPage() {
         <Card>
           <CardContent className="py-16 flex flex-col items-center gap-3 text-slate-400">
             <FolderOpen size={40} />
-            <p className="font-medium">No projects found</p>
+            <p className="font-medium">No projects found / ไม่พบโครงการ</p>
           </CardContent>
         </Card>
       ) : (
@@ -147,11 +147,11 @@ export function ProjectsPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <User size={14} className="text-slate-400 shrink-0" />
-                      <span>PM: <span className="font-medium text-slate-700">{getUserName(proj.pmId)}</span></span>
+                      <span>PM / ผู้จัดการโครงการ: <span className="font-medium text-slate-700">{getUserName(proj.pmId)}</span></span>
                     </div>
                     <div className="flex items-center gap-2">
                       <User size={14} className="text-slate-400 shrink-0" />
-                      <span>CM: <span className="font-medium text-slate-700">{getUserName(proj.cmId)}</span></span>
+                      <span>CM / ผู้จัดการก่อสร้าง: <span className="font-medium text-slate-700">{getUserName(proj.cmId)}</span></span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Calendar size={14} className="text-slate-400 shrink-0" />
@@ -170,7 +170,7 @@ export function ProjectsPage() {
                       className="flex-1"
                       onClick={() => navigate(`/pcr?project=${proj.id}`)}
                     >
-                      <Eye size={13} /> View PCRs
+                      <Eye size={13} /> View PCRs / ดู PCR
                     </Button>
                     {canCreate && (
                       <Button
@@ -190,8 +190,8 @@ export function ProjectsPage() {
       )}
 
       {/* Create Modal */}
-      <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Create New Project" size="md">
-        <ProjectForm onSubmit={handleCreate} onClose={() => setShowCreate(false)} title="Create Project" />
+      <Modal open={showCreate} onClose={() => setShowCreate(false)} title="Create New Project / สร้างโครงการใหม่" size="md">
+        <ProjectForm onSubmit={handleCreate} onClose={() => setShowCreate(false)} title="Create Project / สร้างโครงการ" />
       </Modal>
 
       {/* Edit Modal */}

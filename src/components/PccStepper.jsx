@@ -3,10 +3,10 @@ import { PCC_STATUS } from '../data/mockData';
 import { cn } from '../lib/utils';
 
 const steps = [
-  { label: 'SiteAdmin', sublabel: 'Created', statuses: [] },
-  { label: 'PM', sublabel: 'Verify', statuses: [PCC_STATUS.PENDING_PM] },
-  { label: 'AccountPay', sublabel: 'Verify', statuses: [PCC_STATUS.PENDING_AP, PCC_STATUS.AP_REJECTED] },
-  { label: 'GM', sublabel: 'Approve', statuses: [PCC_STATUS.PENDING_GM, PCC_STATUS.GM_REJECTED, PCC_STATUS.APPROVED] },
+  { label: 'SiteAdmin', sublabel: 'Created / สร้างแล้ว', statuses: [] },
+  { label: 'PM', sublabel: 'Verify / ตรวจสอบ', statuses: [PCC_STATUS.PENDING_PM] },
+  { label: 'AccountPay', sublabel: 'Verify / ตรวจสอบ', statuses: [PCC_STATUS.PENDING_AP, PCC_STATUS.AP_REJECTED] },
+  { label: 'GM', sublabel: 'Approve / อนุมัติ', statuses: [PCC_STATUS.PENDING_GM, PCC_STATUS.GM_REJECTED, PCC_STATUS.APPROVED] },
 ];
 
 function getStepState(stepIdx, status) {

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, FolderOpen, FileText, Receipt,
+  LayoutDashboard, FolderOpen, FileText, Receipt, Printer, HelpCircle,
   ChevronDown, Building2, Menu, X, LogOut, Bell
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -12,27 +12,45 @@ import { ROLES } from '../data/mockData';
 const NAV_ITEMS = [
   {
     label: 'Dashboard',
+    labelTh: 'แดชบอร์ด',
     icon: LayoutDashboard,
     path: '/dashboard',
     roles: [ROLES.MD, ROLES.GM, ROLES.AccountPay],
   },
   {
     label: 'Projects',
+    labelTh: 'โครงการ',
     icon: FolderOpen,
     path: '/projects',
     roles: [ROLES.MD, ROLES.GM, ROLES.PM, ROLES.CM, ROLES.AccountPay],
   },
   {
     label: 'PCR Management',
+    labelTh: 'จัดการ PCR',
     icon: FileText,
     path: '/pcr',
     roles: [ROLES.MD, ROLES.GM, ROLES.PM, ROLES.AccountPay],
   },
   {
     label: 'PCC Management',
+    labelTh: 'จัดการ PCC',
     icon: Receipt,
     path: '/pcc',
     roles: [ROLES.MD, ROLES.GM, ROLES.PM, ROLES.AccountPay, ROLES.SiteAdmin],
+  },
+  {
+    label: 'Print Documents',
+    labelTh: 'พิมพ์เอกสาร',
+    icon: Printer,
+    path: '/print',
+    roles: [ROLES.MD, ROLES.GM, ROLES.PM, ROLES.AccountPay, ROLES.SiteAdmin, ROLES.CM],
+  },
+  {
+    label: 'System Guide',
+    labelTh: 'คู่มือการใช้งาน',
+    icon: HelpCircle,
+    path: '/help',
+    roles: [ROLES.MD, ROLES.GM, ROLES.PM, ROLES.AccountPay, ROLES.SiteAdmin, ROLES.CM],
   },
 ];
 
@@ -94,7 +112,7 @@ export function MainLayout({ children }) {
           {sidebarOpen && (
             <div className="overflow-hidden">
               <p className="text-sm font-bold text-white leading-tight">CMG</p>
-              <p className="text-[10px] text-slate-400 leading-tight">Petty Cash System</p>
+              <p className="text-[10px] text-slate-400 leading-tight">Petty Cash System / ระบบเงินสดย่อย</p>
             </div>
           )}
         </div>
@@ -115,7 +133,12 @@ export function MainLayout({ children }) {
               }
             >
               <item.icon size={18} className="shrink-0" />
-              {sidebarOpen && <span className="truncate">{item.label}</span>}
+              {sidebarOpen && (
+                <span className="truncate">
+                  {item.label}
+                  <span className="block text-[10px] font-normal opacity-70 leading-tight">{item.labelTh}</span>
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>
@@ -138,8 +161,9 @@ export function MainLayout({ children }) {
           <div>
             <h1 className="text-sm font-semibold text-slate-800">
               CMG Petty Cash Management System
+              <span className="ml-2 text-xs font-normal text-slate-500">ระบบจัดการเงินสดย่อย</span>
             </h1>
-            <p className="text-xs text-slate-400">Construction Management Group</p>
+            <p className="text-xs text-slate-400">Construction Management Group / กลุ่มบริหารการก่อสร้าง</p>
           </div>
 
           <div className="flex items-center gap-3">
@@ -178,7 +202,7 @@ export function MainLayout({ children }) {
                   <div className="fixed inset-0 z-10" onClick={() => setUserDropdownOpen(false)} />
                   <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-xl border border-slate-200 shadow-xl z-20 overflow-hidden">
                     <div className="px-4 py-3 border-b border-slate-100">
-                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Switch User (Testing)</p>
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Switch User / เปลี่ยนผู้ใช้ (ทดสอบ)</p>
                     </div>
                     {USERS.map((user) => (
                       <button

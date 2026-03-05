@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import {
   Plus, CheckCircle, XCircle, Receipt, Trash2,
-  ChevronDown, ChevronUp, AlertCircle, RefreshCw
+  ChevronDown, ChevronUp, AlertCircle, RefreshCw,
+  Paperclip, Camera, X, ImageIcon, FileText as FileIcon,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
@@ -15,76 +16,186 @@ import { PccStepper } from '../components/PccStepper';
 import { formatDate, formatCurrency } from '../lib/utils';
 import { cn } from '../lib/utils';
 
+// ─── Attachment helpers ───────────────────────────────────────────────────────
+
+function readFileAsDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve({ name: file.name, type: file.type, dataUrl: e.target.result });
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function AttachmentThumb({ att, onRemove }) {
+  const isImage = att.type.startsWith('image/');
+  return (
+    <div className="relative group w-16 h-16 rounded-lg overflow-hidden border border-slate-200 bg-slate-100 shrink-0">
+      {isImage ? (
+        <img src={att.dataUrl} alt={att.name} className="w-full h-full object-cover" />
+      ) : (
+        <div className="w-full h-full flex flex-col items-center justify-center gap-0.5 px-1">
+          <FileIcon size={18} className="text-slate-400" />
+          <span className="text-[8px] text-slate-500 text-center leading-tight break-all line-clamp-2">{att.name}</span>
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={onRemove}
+        className="absolute top-0.5 right-0.5 w-4 h-4 bg-rose-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+      >
+        <X size={9} className="text-white" />
+      </button>
+    </div>
+  );
+}
+
 // ─── Line Item Editor ─────────────────────────────────────────────────────────
 
 function LineItemEditor({ items, onChange }) {
-  const addItem = () => onChange([...items, { description: '', amount: '', reason: '' }]);
+  const addItem = () => onChange([...items, { description: '', amount: '', reason: '', attachments: [] }]);
   const removeItem = (idx) => onChange(items.filter((_, i) => i !== idx));
   const setField = (idx, field, val) =>
     onChange(items.map((item, i) => (i === idx ? { ...item, [field]: val } : item)));
+
+  const fileInputRefs = useRef([]);
+  const cameraInputRefs = useRef([]);
+
+  const handleFiles = async (idx, files) => {
+    const newAtts = await Promise.all(Array.from(files).map(readFileAsDataURL));
+    const existing = items[idx].attachments || [];
+    setField(idx, 'attachments', [...existing, ...newAtts]);
+  };
+
+  const removeAttachment = (itemIdx, attIdx) => {
+    const existing = items[itemIdx].attachments || [];
+    setField(itemIdx, 'attachments', existing.filter((_, i) => i !== attIdx));
+  };
 
   const total = items.reduce((s, i) => s + (Number(i.amount) || 0), 0);
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-slate-700">Line Items</p>
+        <p className="text-sm font-semibold text-slate-700">Line Items / รายการค่าใช้จ่าย</p>
         <Button type="button" variant="outline" size="sm" onClick={addItem}>
-          <Plus size={13} /> Add Item
+          <Plus size={13} /> Add Item / เพิ่มรายการ
         </Button>
       </div>
 
       {items.length === 0 && (
         <div className="text-center py-6 text-slate-400 text-sm border-2 border-dashed border-slate-200 rounded-xl">
-          No items yet. Click "Add Item" to begin.
+          No items yet. Click "Add Item" to begin. / ยังไม่มีรายการ กดปุ่ม "เพิ่มรายการ" เพื่อเริ่มต้น
         </div>
       )}
 
-      {items.map((item, idx) => (
-        <div key={idx} className="grid grid-cols-12 gap-2 items-start bg-slate-50 rounded-xl p-3 border border-slate-200">
-          <div className="col-span-5">
-            <input
-              className="w-full px-2 py-1.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-              placeholder="Description"
-              value={item.description}
-              onChange={(e) => setField(idx, 'description', e.target.value)}
-            />
+      {items.map((item, idx) => {
+        const atts = item.attachments || [];
+        return (
+          <div key={idx} className="flex flex-col gap-2 bg-slate-50 rounded-xl p-3 border border-slate-200">
+            {/* Fields row */}
+            <div className="grid grid-cols-12 gap-2 items-start">
+              <div className="col-span-5">
+                <input
+                  className="w-full px-2 py-1.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="Description / รายละเอียด"
+                  value={item.description}
+                  onChange={(e) => setField(idx, 'description', e.target.value)}
+                />
+              </div>
+              <div className="col-span-3">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="w-full px-2 py-1.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="Amount / จำนวนเงิน (บาท)"
+                  value={item.amount}
+                  onChange={(e) => setField(idx, 'amount', e.target.value)}
+                />
+              </div>
+              <div className="col-span-3">
+                <input
+                  className="w-full px-2 py-1.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="Reason / เหตุผล"
+                  value={item.reason}
+                  onChange={(e) => setField(idx, 'reason', e.target.value)}
+                />
+              </div>
+              <div className="col-span-1 flex justify-center pt-1.5">
+                <button
+                  type="button"
+                  onClick={() => removeItem(idx)}
+                  className="text-slate-400 hover:text-rose-500 transition-colors cursor-pointer"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            </div>
+
+            {/* Attachments row */}
+            <div className="flex items-center gap-2 flex-wrap pl-1">
+              {/* Thumbnails */}
+              {atts.map((att, attIdx) => (
+                <AttachmentThumb
+                  key={attIdx}
+                  att={att}
+                  onRemove={() => removeAttachment(idx, attIdx)}
+                />
+              ))}
+
+              {/* Upload file button */}
+              <button
+                type="button"
+                title="Attach file / แนบไฟล์"
+                onClick={() => fileInputRefs.current[idx]?.click()}
+                className="w-16 h-16 rounded-lg border-2 border-dashed border-slate-300 hover:border-blue-400 hover:bg-blue-50 flex flex-col items-center justify-center gap-0.5 text-slate-400 hover:text-blue-500 transition-all cursor-pointer shrink-0"
+              >
+                <Paperclip size={16} />
+                <span className="text-[9px] font-medium leading-tight text-center">File<br/>ไฟล์</span>
+              </button>
+              <input
+                ref={(el) => (fileInputRefs.current[idx] = el)}
+                type="file"
+                accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx"
+                multiple
+                className="hidden"
+                onChange={(e) => { handleFiles(idx, e.target.files); e.target.value = ''; }}
+              />
+
+              {/* Camera capture button */}
+              <button
+                type="button"
+                title="Take photo / ถ่ายภาพ"
+                onClick={() => cameraInputRefs.current[idx]?.click()}
+                className="w-16 h-16 rounded-lg border-2 border-dashed border-slate-300 hover:border-emerald-400 hover:bg-emerald-50 flex flex-col items-center justify-center gap-0.5 text-slate-400 hover:text-emerald-500 transition-all cursor-pointer shrink-0"
+              >
+                <Camera size={16} />
+                <span className="text-[9px] font-medium leading-tight text-center">Photo<br/>ถ่ายรูป</span>
+              </button>
+              <input
+                ref={(el) => (cameraInputRefs.current[idx] = el)}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => { handleFiles(idx, e.target.files); e.target.value = ''; }}
+              />
+
+              {atts.length > 0 && (
+                <span className="text-[10px] text-slate-400 ml-1">
+                  {atts.length} file{atts.length > 1 ? 's' : ''} attached / แนบแล้ว {atts.length} ไฟล์
+                </span>
+              )}
+            </div>
           </div>
-          <div className="col-span-3">
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              className="w-full px-2 py-1.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-              placeholder="Amount"
-              value={item.amount}
-              onChange={(e) => setField(idx, 'amount', e.target.value)}
-            />
-          </div>
-          <div className="col-span-3">
-            <input
-              className="w-full px-2 py-1.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-              placeholder="Reason"
-              value={item.reason}
-              onChange={(e) => setField(idx, 'reason', e.target.value)}
-            />
-          </div>
-          <div className="col-span-1 flex justify-center pt-1.5">
-            <button
-              type="button"
-              onClick={() => removeItem(idx)}
-              className="text-slate-400 hover:text-rose-500 transition-colors cursor-pointer"
-            >
-              <Trash2 size={15} />
-            </button>
-          </div>
-        </div>
-      ))}
+        );
+      })}
 
       {items.length > 0 && (
         <div className="flex justify-end">
           <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 text-sm font-semibold text-blue-800">
-            Total: {formatCurrency(total)}
+            Total / รวม: {formatCurrency(total)}
           </div>
         </div>
       )}
@@ -100,7 +211,7 @@ function CreatePccForm({ onSubmit, onClose }) {
 
   const [projectId, setProjectId] = useState('');
   const [pcrId, setPcrId] = useState('');
-  const [items, setItems] = useState([{ description: '', amount: '', reason: '' }]);
+  const [items, setItems] = useState([{ description: '', amount: '', reason: '', attachments: [] }]);
   const [errors, setErrors] = useState({});
 
   const activePcrs = useMemo(
@@ -144,7 +255,7 @@ function CreatePccForm({ onSubmit, onClose }) {
     <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-5">
       <div className="grid grid-cols-2 gap-4">
         <Select
-          label="Project"
+          label="Project / โครงการ"
           required
           value={projectId}
           onChange={(e) => { setProjectId(e.target.value); setPcrId(''); }}
@@ -155,7 +266,7 @@ function CreatePccForm({ onSubmit, onClose }) {
         </Select>
 
         <Select
-          label="Active PCR (Wallet)"
+          label="Active PCR (Wallet) / PCR ที่ใช้งาน"
           required
           value={pcrId}
           onChange={(e) => setPcrId(e.target.value)}
@@ -181,16 +292,16 @@ function CreatePccForm({ onSubmit, onClose }) {
         )}>
           <div className="flex items-center gap-2 font-semibold mb-1">
             {wouldExceed ? <AlertCircle size={15} /> : <CheckCircle size={15} />}
-            PCR Balance Check
+            PCR Balance Check / ตรวจสอบยอดคงเหลือ PCR
           </div>
           <div className="grid grid-cols-3 gap-2 text-xs">
-            <div><span className="opacity-70">PCR Total:</span><br /><span className="font-bold">{formatCurrency(selectedPcr.amount)}</span></div>
-            <div><span className="opacity-70">Available:</span><br /><span className="font-bold">{formatCurrency(remaining)}</span></div>
-            <div><span className="opacity-70">This Claim:</span><br /><span className="font-bold">{formatCurrency(newTotal)}</span></div>
+            <div><span className="opacity-70">PCR Total / รวม PCR:</span><br /><span className="font-bold">{formatCurrency(selectedPcr.amount)}</span></div>
+            <div><span className="opacity-70">Available / คงเหลือ:</span><br /><span className="font-bold">{formatCurrency(remaining)}</span></div>
+            <div><span className="opacity-70">This Claim / คำขอนี้:</span><br /><span className="font-bold">{formatCurrency(newTotal)}</span></div>
           </div>
           {wouldExceed && (
             <p className="mt-2 font-semibold text-rose-700 text-xs">
-              ⚠ Submission blocked: claim exceeds available PCR balance.
+              ⚠ Submission blocked: claim exceeds available PCR balance. / ไม่สามารถส่งได้: ยอดเกินคงเหลือ PCR
             </p>
           )}
         </div>
@@ -209,9 +320,9 @@ function CreatePccForm({ onSubmit, onClose }) {
       </div>
 
       <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
-        <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button type="button" variant="secondary" onClick={onClose}>Cancel / ยกเลิก</Button>
         <Button type="submit" variant="primary" disabled={wouldExceed}>
-          <Receipt size={15} /> Submit PCC
+          <Receipt size={15} /> Submit PCC / ส่งคำขอ PCC
         </Button>
       </div>
     </form>
@@ -227,22 +338,22 @@ function RejectModal({ open, onClose, onConfirm, title }) {
     <Modal open={open} onClose={onClose} title={title} size="sm">
       <div className="p-6 flex flex-col gap-4">
         <Textarea
-          label="Rejection Reason"
+          label="Rejection Reason / เหตุผลการปฏิเสธ"
           required
           rows={4}
           value={note}
           onChange={(e) => { setNote(e.target.value); setError(''); }}
-          placeholder="Provide a clear reason for rejection..."
+          placeholder="Provide a clear reason for rejection... / ระบุเหตุผลการปฏิเสธ"
           error={error}
         />
         <div className="flex justify-end gap-3">
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button variant="secondary" onClick={onClose}>Cancel / ยกเลิก</Button>
           <Button variant="danger" onClick={() => {
             if (!note.trim()) { setError('Reason is required'); return; }
             onConfirm(note);
             setNote('');
           }}>
-            <XCircle size={15} /> Confirm Reject
+            <XCircle size={15} /> Confirm Reject / ยืนยันการปฏิเสธ
           </Button>
         </div>
       </div>
@@ -287,7 +398,7 @@ function PccRow({ pcc, onAction }) {
         <div className="border-t border-slate-100 bg-slate-50/50">
           {/* Stepper */}
           <div className="px-5 py-4 border-b border-slate-100 bg-white">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Approval Workflow</p>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Approval Workflow / ขั้นตอนการอนุมัติ</p>
             <PccStepper status={pcc.status} />
           </div>
 
@@ -295,35 +406,70 @@ function PccRow({ pcc, onAction }) {
             {/* Rejection note */}
             {pcc.rejectNote && (
               <div className="bg-rose-50 border border-rose-200 rounded-xl p-3">
-                <p className="text-xs font-semibold text-rose-700 mb-0.5">Rejection Note:</p>
+                <p className="text-xs font-semibold text-rose-700 mb-0.5">Rejection Note / หมายเหตุการปฏิเสธ:</p>
                 <p className="text-sm text-rose-700">{pcc.rejectNote}</p>
               </div>
             )}
 
             {/* Line items table */}
             <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Line Items</p>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Line Items / รายการค่าใช้จ่าย</p>
               <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200">
-                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Description</th>
-                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Reason</th>
-                      <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Amount</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Description / รายละเอียด</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Reason / เหตุผล</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Attachments / เอกสาร</th>
+                      <th className="text-right px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">Amount / จำนวนเงิน</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {items.map((item) => (
-                      <tr key={item.id} className="border-b border-slate-100 last:border-0">
-                        <td className="px-4 py-2.5 text-slate-700">{item.description}</td>
-                        <td className="px-4 py-2.5 text-slate-500">{item.reason}</td>
-                        <td className="px-4 py-2.5 text-right font-medium text-slate-800">{formatCurrency(item.amount)}</td>
-                      </tr>
-                    ))}
+                    {items.map((item) => {
+                      const atts = item.attachments || [];
+                      return (
+                        <tr key={item.id} className="border-b border-slate-100 last:border-0">
+                          <td className="px-4 py-2.5 text-slate-700">{item.description}</td>
+                          <td className="px-4 py-2.5 text-slate-500">{item.reason}</td>
+                          <td className="px-4 py-2.5">
+                            {atts.length === 0 ? (
+                              <span className="text-slate-300 text-xs">—</span>
+                            ) : (
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {atts.map((att, ai) => (
+                                  att.type.startsWith('image/') ? (
+                                    <a key={ai} href={att.dataUrl} target="_blank" rel="noreferrer" title={att.name}>
+                                      <img
+                                        src={att.dataUrl}
+                                        alt={att.name}
+                                        className="w-10 h-10 rounded-md object-cover border border-slate-200 hover:border-blue-400 transition-colors"
+                                      />
+                                    </a>
+                                  ) : (
+                                    <a
+                                      key={ai}
+                                      href={att.dataUrl}
+                                      download={att.name}
+                                      title={att.name}
+                                      className="w-10 h-10 rounded-md border border-slate-200 hover:border-blue-400 bg-slate-50 flex flex-col items-center justify-center gap-0.5 transition-colors"
+                                    >
+                                      <FileIcon size={14} className="text-slate-400" />
+                                      <span className="text-[7px] text-slate-400 leading-tight px-0.5 text-center truncate w-full">.{att.name.split('.').pop()}</span>
+                                    </a>
+                                  )
+                                ))}
+                                <span className="text-[10px] text-slate-400">{atts.length} file{atts.length > 1 ? 's' : ''}</span>
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 text-right font-medium text-slate-800">{formatCurrency(item.amount)}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                   <tfoot>
                     <tr className="bg-blue-50">
-                      <td colSpan={2} className="px-4 py-2.5 text-sm font-semibold text-blue-800">Total</td>
+                      <td colSpan={3} className="px-4 py-2.5 text-sm font-semibold text-blue-800">Total / รวม</td>
                       <td className="px-4 py-2.5 text-right font-bold text-blue-800">{formatCurrency(pcc.totalAmount)}</td>
                     </tr>
                   </tfoot>
@@ -333,9 +479,9 @@ function PccRow({ pcc, onAction }) {
 
             {/* Audit trail */}
             <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
-              {pcc.verifiedByPM && <div className="bg-white rounded px-2 py-1.5 border border-slate-100"><span className="text-slate-400">PM verified: </span>{getUserName(pcc.verifiedByPM)} ({formatDate(pcc.verifiedByPMAt)})</div>}
-              {pcc.verifiedByAP && <div className="bg-white rounded px-2 py-1.5 border border-slate-100"><span className="text-slate-400">AP verified: </span>{getUserName(pcc.verifiedByAP)} ({formatDate(pcc.verifiedByAPAt)})</div>}
-              {pcc.approvedByGM && <div className="bg-white rounded px-2 py-1.5 border border-slate-100"><span className="text-slate-400">GM approved: </span>{getUserName(pcc.approvedByGM)} ({formatDate(pcc.approvedByGMAt)})</div>}
+              {pcc.verifiedByPM && <div className="bg-white rounded px-2 py-1.5 border border-slate-100"><span className="text-slate-400">PM verified / PM ตรวจสอบ: </span>{getUserName(pcc.verifiedByPM)} ({formatDate(pcc.verifiedByPMAt)})</div>}
+              {pcc.verifiedByAP && <div className="bg-white rounded px-2 py-1.5 border border-slate-100"><span className="text-slate-400">AP verified / AP ตรวจสอบ: </span>{getUserName(pcc.verifiedByAP)} ({formatDate(pcc.verifiedByAPAt)})</div>}
+              {pcc.approvedByGM && <div className="bg-white rounded px-2 py-1.5 border border-slate-100"><span className="text-slate-400">GM approved / GM อนุมัติ: </span>{getUserName(pcc.approvedByGM)} ({formatDate(pcc.approvedByGMAt)})</div>}
             </div>
 
             {/* Action buttons */}
@@ -399,7 +545,7 @@ export function PccPage() {
     if (hasRole(ROLES.PM) && pcc.status === PCC_STATUS.PENDING_PM) {
       actions.push(
         <Button key="verify" variant="success" size="sm" onClick={() => pmVerifyPcc(pcc.id, currentUser.id)}>
-          <CheckCircle size={14} /> Verify & Pass to AP
+          <CheckCircle size={14} /> Verify & Pass to AP / ตรวจสอบและส่งต่อ AP
         </Button>
       );
     }
@@ -407,10 +553,10 @@ export function PccPage() {
     if (hasRole(ROLES.AccountPay) && pcc.status === PCC_STATUS.PENDING_AP) {
       actions.push(
         <Button key="apverify" variant="success" size="sm" onClick={() => apVerifyPcc(pcc.id, currentUser.id)}>
-          <CheckCircle size={14} /> Verify & Pass to GM
+          <CheckCircle size={14} /> Verify & Pass to GM / ตรวจสอบและส่งต่อ GM
         </Button>,
         <Button key="apreject" variant="danger" size="sm" onClick={() => { setRejectTarget(pcc); setRejectMode('ap'); }}>
-          <XCircle size={14} /> Reject Back to SiteAdmin
+          <XCircle size={14} /> Reject Back to SiteAdmin / ส่งคืน SiteAdmin
         </Button>
       );
     }
@@ -418,10 +564,10 @@ export function PccPage() {
     if (hasRole(ROLES.GM, ROLES.MD) && pcc.status === PCC_STATUS.PENDING_GM) {
       actions.push(
         <Button key="gmapprove" variant="success" size="sm" onClick={() => gmApprovePcc(pcc.id, currentUser.id)}>
-          <CheckCircle size={14} /> Approve Payment
+          <CheckCircle size={14} /> Approve Payment / อนุมัติการจ่ายเงิน
         </Button>,
         <Button key="gmreject" variant="danger" size="sm" onClick={() => { setRejectTarget(pcc); setRejectMode('gm'); }}>
-          <XCircle size={14} /> Reject
+          <XCircle size={14} /> Reject / ปฏิเสธ
         </Button>
       );
     }
@@ -429,7 +575,7 @@ export function PccPage() {
     if (hasRole(ROLES.SiteAdmin) && (pcc.status === PCC_STATUS.AP_REJECTED || pcc.status === PCC_STATUS.GM_REJECTED)) {
       actions.push(
         <span key="info" className="text-xs text-slate-500 italic flex items-center gap-1">
-          <RefreshCw size={12} /> This PCC was rejected. Please create a new corrected PCC.
+          <RefreshCw size={12} /> This PCC was rejected. Please create a new corrected PCC. / PCC นี้ถูกปฏิเสธ กรุณาสร้าง PCC ใหม่ที่แก้ไขแล้ว
         </span>
       );
     }
@@ -442,12 +588,12 @@ export function PccPage() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-xl font-bold text-slate-800">PCC Management</h2>
-          <p className="text-sm text-slate-500 mt-0.5">Petty Cash Claims – {visiblePccs.length} record(s)</p>
+          <h2 className="text-xl font-bold text-slate-800">PCC Management <span className="text-base font-medium text-slate-500">/ จัดการ PCC</span></h2>
+          <p className="text-sm text-slate-500 mt-0.5">Petty Cash Claims / ใบเบิกเงินสดย่อย – {visiblePccs.length} รายการ</p>
         </div>
         {canCreate && (
           <Button onClick={() => setShowCreate(true)}>
-            <Plus size={16} /> New PCC
+            <Plus size={16} /> New PCC / สร้าง PCC ใหม่
           </Button>
         )}
       </div>
@@ -459,7 +605,7 @@ export function PccPage() {
           onChange={(e) => setProjectFilter(e.target.value)}
           className="px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
         >
-          <option value="">All Projects</option>
+          <option value="">All Projects / ทุกโครงการ</option>
           {projects.map((p) => <option key={p.id} value={p.id}>{p.id} – {p.name}</option>)}
         </select>
         <select
@@ -467,7 +613,7 @@ export function PccPage() {
           onChange={(e) => setStatusFilter(e.target.value)}
           className="px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
         >
-          <option value="">All Statuses</option>
+          <option value="">All Statuses / ทุกสถานะ</option>
           {allStatuses.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
       </div>
@@ -477,8 +623,8 @@ export function PccPage() {
         <Card>
           <CardContent className="py-16 flex flex-col items-center gap-3 text-slate-400">
             <Receipt size={40} />
-            <p className="font-medium">No PCCs found</p>
-            {canCreate && <p className="text-sm">Click "New PCC" to submit a petty cash claim.</p>}
+            <p className="font-medium">No PCCs found / ไม่พบรายการ PCC</p>
+            {canCreate && <p className="text-sm">Click "New PCC" to submit a petty cash claim. / กดปุ่ม "สร้าง PCC ใหม่" เพื่อยื่นคำขอ</p>}
           </CardContent>
         </Card>
       ) : (
@@ -490,7 +636,7 @@ export function PccPage() {
       )}
 
       {/* Create Modal */}
-      <Modal open={showCreate} onClose={() => setShowCreate(false)} title="New Petty Cash Claim (PCC)" size="lg">
+      <Modal open={showCreate} onClose={() => setShowCreate(false)} title="New Petty Cash Claim (PCC) / ใบเบิกเงินสดย่อยใหม่" size="lg">
         <CreatePccForm onSubmit={handleCreate} onClose={() => setShowCreate(false)} />
       </Modal>
 

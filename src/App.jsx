@@ -6,6 +6,8 @@ import { DashboardPage } from './pages/DashboardPage';
 import { ProjectsPage } from './pages/ProjectsPage';
 import { PcrPage } from './pages/PcrPage';
 import { PccPage } from './pages/PccPage';
+import { PrintPage } from './pages/PrintPage';
+import { HelpPage } from './pages/HelpPage';
 
 function App() {
   return (
@@ -19,6 +21,8 @@ function App() {
               <Route path="/projects" element={<ProjectsPage />} />
               <Route path="/pcr" element={<PcrPage />} />
               <Route path="/pcc" element={<PccPage />} />
+              <Route path="/print" element={<PrintPage />} />
+              <Route path="/help" element={<HelpPage />} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
           </MainLayout>

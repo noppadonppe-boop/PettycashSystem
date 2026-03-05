@@ -6,9 +6,9 @@ export function cn(...inputs) {
 }
 
 export function formatCurrency(amount) {
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('th-TH', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'THB',
     minimumFractionDigits: 2,
   }).format(amount);
 }

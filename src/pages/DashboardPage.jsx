@@ -134,38 +134,38 @@ export function DashboardPage() {
     <div className="flex flex-col gap-6">
       {/* Page header */}
       <div>
-        <h2 className="text-xl font-bold text-slate-800">Executive Dashboard</h2>
-        <p className="text-sm text-slate-500 mt-0.5">Welcome back, {currentUser?.name} — here's your financial overview.</p>
+        <h2 className="text-xl font-bold text-slate-800">Executive Dashboard <span className="text-base font-medium text-slate-500">/ แดชบอร์ดผู้บริหาร</span></h2>
+        <p className="text-sm text-slate-500 mt-0.5">Welcome back, {currentUser?.name} — here's your financial overview. / ยินดีต้อนรับ {currentUser?.name} — ภาพรวมการเงินของคุณ</p>
       </div>
 
       {/* Metric cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
           icon={DollarSign}
-          label="Outstanding Cash (Active PCRs)"
+          label="Outstanding Cash (Active PCRs) / เงินสดคงค้าง"
           value={formatCurrency(totalOutstanding)}
-          sub="Cash held across all active PCR wallets"
+          sub="Cash held across all active PCR wallets / เงินสดทั้งหมดใน PCR ที่ใช้งานอยู่"
           color="blue"
         />
         <MetricCard
           icon={FolderOpen}
-          label="Active Projects"
+          label="Active Projects / โครงการที่ใช้งาน"
           value={metrics.totalProjects}
-          sub={`${metrics.activePcrs} active PCR wallets`}
+          sub={`${metrics.activePcrs} active PCR wallets / กระเป๋าเงิน PCR`}
           color="emerald"
         />
         <MetricCard
           icon={FileText}
-          label="Pending Your Approval"
+          label="Pending Your Approval / รออนุมัติ"
           value={metrics.pendingApprovals}
-          sub="PCRs + PCCs awaiting GM/MD action"
+          sub="PCRs + PCCs awaiting GM/MD action / รอดำเนินการ"
           color="amber"
         />
         <MetricCard
           icon={Receipt}
-          label="Total Approved Claims"
+          label="Total Approved Claims / ยอดอนุมัติทั้งหมด"
           value={formatCurrency(metrics.totalPccValue)}
-          sub={`${metrics.approvedPccs} PCC(s) fully approved`}
+          sub={`${metrics.approvedPccs} PCC(s) fully approved / อนุมัติแล้ว`}
           color="purple"
         />
       </div>
@@ -176,7 +176,7 @@ export function DashboardPage() {
           <CardHeader className="border-amber-200">
             <div className="flex items-center gap-2">
               <AlertTriangle size={18} className="text-amber-600" />
-              <CardTitle className="text-amber-800">Aging Alerts – Overdue Active PCRs ({agingAlerts.length})</CardTitle>
+              <CardTitle className="text-amber-800">Aging Alerts – Overdue Active PCRs ({agingAlerts.length}) / การแจ้งเตือน PCR เกินกำหนด</CardTitle>
             </div>
           </CardHeader>
           <CardContent className="py-3">
@@ -185,10 +185,10 @@ export function DashboardPage() {
                 <thead>
                   <tr className="border-b border-amber-200">
                     <th className="text-left py-2 pr-4 text-xs font-semibold text-amber-700 uppercase">PCR ID</th>
-                    <th className="text-left py-2 pr-4 text-xs font-semibold text-amber-700 uppercase">Project</th>
-                    <th className="text-left py-2 pr-4 text-xs font-semibold text-amber-700 uppercase">Amount</th>
-                    <th className="text-left py-2 pr-4 text-xs font-semibold text-amber-700 uppercase">Due Date</th>
-                    <th className="text-left py-2 pr-4 text-xs font-semibold text-amber-700 uppercase">Remaining</th>
+                    <th className="text-left py-2 pr-4 text-xs font-semibold text-amber-700 uppercase">Project / โครงการ</th>
+                    <th className="text-left py-2 pr-4 text-xs font-semibold text-amber-700 uppercase">Amount / จำนวนเงิน</th>
+                    <th className="text-left py-2 pr-4 text-xs font-semibold text-amber-700 uppercase">Due Date / วันครบกำหนด</th>
+                    <th className="text-left py-2 pr-4 text-xs font-semibold text-amber-700 uppercase">Remaining / คงเหลือ</th>
                     <th className="text-left py-2 text-xs font-semibold text-amber-700 uppercase">PM</th>
                   </tr>
                 </thead>
@@ -222,7 +222,7 @@ export function DashboardPage() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <TrendingUp size={16} className="text-blue-600" />
-              <CardTitle>PCR Approved vs PCC Claimed by Project</CardTitle>
+              <CardTitle>PCR Approved vs PCC Claimed by Project / PCR อนุมัติ vs PCC เบิกจ่าย รายโครงการ</CardTitle>
             </div>
           </CardHeader>
           <CardContent className="pt-2">
@@ -230,11 +230,11 @@ export function DashboardPage() {
               <BarChart data={utilizationData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} />
-                <YAxis tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+                <YAxis tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={(v) => `฿${(v / 1000).toFixed(0)}k`} />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey="approved" name="PCR Approved" fill="#2563eb" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="claimed" name="PCC Claimed" fill="#10b981" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="approved" name="PCR อนุมัติ" fill="#2563eb" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="claimed" name="PCC เบิกจ่าย" fill="#10b981" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -243,7 +243,7 @@ export function DashboardPage() {
         {/* PCR Status Pie Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>PCR Status Distribution</CardTitle>
+            <CardTitle>PCR Status Distribution / การกระจายสถานะ PCR</CardTitle>
           </CardHeader>
           <CardContent className="pt-2">
             <ResponsiveContainer width="100%" height={200}>
@@ -284,7 +284,7 @@ export function DashboardPage() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <FileText size={16} className="text-blue-600" />
-            <CardTitle>Master Ledger</CardTitle>
+            <CardTitle>Master Ledger / บัญชีแยกประเภทหลัก</CardTitle>
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -292,14 +292,14 @@ export function DashboardPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Project</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Project / โครงการ</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">PCR No.</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">PCC No.</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Type</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">PCR Amt</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">PCC Amt</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Date</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Type / ประเภท</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">PCR Amt / จำนวน PCR</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">PCC Amt / จำนวน PCC</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Date / วันที่</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status / สถานะ</th>
                 </tr>
               </thead>
               <tbody>

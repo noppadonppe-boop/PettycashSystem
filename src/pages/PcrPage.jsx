@@ -46,12 +46,12 @@ function PcrForm({ initial, projects, onSubmit, onClose, title }) {
         {projects.map((p) => <option key={p.id} value={p.id}>{p.id} – {p.name}</option>)}
       </Select>
       <div className="grid grid-cols-2 gap-4">
-        <Input label="Amount (USD)" id="amount" type="number" required min="1" step="0.01" value={form.amount} onChange={set('amount')} error={errors.amount} placeholder="0.00" />
-        <Input label="Due Date" id="dueDate" type="date" required value={form.dueDate} onChange={set('dueDate')} error={errors.dueDate} />
+        <Input label="Amount (THB) / จำนวนเงิน (บาท)" id="amount" type="number" required min="1" step="0.01" value={form.amount} onChange={set('amount')} error={errors.amount} placeholder="0.00" />
+        <Input label="Due Date / วันครบกำหนด" id="dueDate" type="date" required value={form.dueDate} onChange={set('dueDate')} error={errors.dueDate} />
       </div>
-      <Textarea label="Reason / Justification" id="reason" required rows={4} value={form.reason} onChange={set('reason')} error={errors.reason} placeholder="Describe the purpose of this petty cash request..." />
+      <Textarea label="Reason / Justification / เหตุผลและความจำเป็น" id="reason" required rows={4} value={form.reason} onChange={set('reason')} error={errors.reason} placeholder="Describe the purpose of this petty cash request... / ระบุวัตถุประสงค์ของการขอเงินสดย่อย" />
       <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
-        <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button type="button" variant="secondary" onClick={onClose}>Cancel / ยกเลิก</Button>
         <Button type="submit">{title}</Button>
       </div>
     </form>
@@ -64,11 +64,11 @@ function RejectModal({ open, onClose, onConfirm, title }) {
   return (
     <Modal open={open} onClose={onClose} title={title} size="sm">
       <div className="p-6 flex flex-col gap-4">
-        <Textarea label="Rejection Reason" required rows={4} value={note} onChange={(e) => { setNote(e.target.value); setError(''); }} placeholder="Provide a clear reason for rejection..." error={error} />
+        <Textarea label="Rejection Reason / เหตุผลการปฏิเสธ" required rows={4} value={note} onChange={(e) => { setNote(e.target.value); setError(''); }} placeholder="Provide a clear reason for rejection... / ระบุเหตุผลการปฏิเสธ" error={error} />
         <div className="flex justify-end gap-3">
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button variant="secondary" onClick={onClose}>Cancel / ยกเลิก</Button>
           <Button variant="danger" onClick={() => { if (!note.trim()) { setError('Reason is required'); return; } onConfirm(note); setNote(''); }}>
-            <XCircle size={15} /> Confirm Reject
+            <XCircle size={15} /> Confirm Reject / ยืนยันการปฏิเสธ
           </Button>
         </div>
       </div>
@@ -82,17 +82,17 @@ function ClosureModalContent({ onClose, onConfirm, pcr, amountToReturn }) {
   return (
     <div className="p-6 flex flex-col gap-4">
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-        <p className="text-sm font-semibold text-blue-800 mb-2">Closure Summary</p>
+        <p className="text-sm font-semibold text-blue-800 mb-2">Closure Summary / สรุปการปิด PCR</p>
         <div className="space-y-1 text-sm">
-          <div className="flex justify-between"><span className="text-slate-600">PCR Amount</span><span className="font-medium">{formatCurrency(pcr?.amount || 0)}</span></div>
-          <div className="flex justify-between border-t border-blue-100 pt-1 mt-1"><span className="font-semibold text-blue-800">Amount to Return</span><span className="font-bold text-blue-800">{formatCurrency(amountToReturn)}</span></div>
+          <div className="flex justify-between"><span className="text-slate-600">PCR Amount / จำนวน PCR</span><span className="font-medium">{formatCurrency(pcr?.amount || 0)}</span></div>
+          <div className="flex justify-between border-t border-blue-100 pt-1 mt-1"><span className="font-semibold text-blue-800">Amount to Return / ยอดคืนเงิน</span><span className="font-bold text-blue-800">{formatCurrency(amountToReturn)}</span></div>
         </div>
       </div>
-      <Textarea label="Closure Note" rows={3} value={note} onChange={(e) => { setNote(e.target.value); setError(''); }} placeholder="Notes for closing this PCR..." error={error} />
+      <Textarea label="Closure Note / หมายเหตุการปิด" rows={3} value={note} onChange={(e) => { setNote(e.target.value); setError(''); }} placeholder="Notes for closing this PCR... / หมายเหตุสำหรับการปิด PCR" error={error} />
       <div className="flex justify-end gap-3">
-        <Button variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button variant="secondary" onClick={onClose}>Cancel / ยกเลิก</Button>
         <Button variant="warning" onClick={() => { if (!note.trim()) { setError('Note is required'); return; } onConfirm(note); setNote(''); }}>
-          <Lock size={15} /> Request Closure
+          <Lock size={15} /> Request Closure / ขอปิด PCR
         </Button>
       </div>
     </div>
@@ -104,11 +104,11 @@ function ConfirmReceiptModalContent({ onClose, onConfirm }) {
   const [error, setError] = useState('');
   return (
     <div className="p-6 flex flex-col gap-4">
-      <Textarea label="Receipt Confirmation Note" required rows={3} value={note} onChange={(e) => { setNote(e.target.value); setError(''); }} placeholder="e.g., Cash received and counted. All funds accounted for." error={error} />
+      <Textarea label="Receipt Confirmation Note / หมายเหตุยืนยันการรับเงิน" required rows={3} value={note} onChange={(e) => { setNote(e.target.value); setError(''); }} placeholder="e.g., Cash received and counted. / ได้รับเงินสดและนับถูกต้องแล้ว" error={error} />
       <div className="flex justify-end gap-3">
-        <Button variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button variant="secondary" onClick={onClose}>Cancel / ยกเลิก</Button>
         <Button variant="success" onClick={() => { if (!note.trim()) { setError('Note is required'); return; } onConfirm(note); setNote(''); }}>
-          <CheckCircle size={15} /> Confirm Receipt
+          <CheckCircle size={15} /> Confirm Receipt / ยืนยันการรับเงิน
         </Button>
       </div>
     </div>
@@ -150,15 +150,15 @@ function PcrRow({ pcr, project, onAction }) {
 
         <div className="hidden lg:flex items-center gap-6 text-right shrink-0">
           <div>
-            <p className="text-xs text-slate-400">Amount</p>
+            <p className="text-xs text-slate-400">Amount / จำนวน</p>
             <p className="text-sm font-semibold text-slate-800">{formatCurrency(pcr.amount)}</p>
           </div>
           <div>
-            <p className="text-xs text-slate-400">Claimed</p>
+            <p className="text-xs text-slate-400">Claimed / เบิกจ่าย</p>
             <p className="text-sm font-semibold text-slate-800">{formatCurrency(approvedSpend)}</p>
           </div>
           <div>
-            <p className="text-xs text-slate-400">Remaining</p>
+            <p className="text-xs text-slate-400">Remaining / คงเหลือ</p>
             <p className={cn('text-sm font-semibold', remaining < 0 ? 'text-rose-600' : 'text-emerald-600')}>{formatCurrency(remaining)}</p>
           </div>
         </div>
@@ -172,24 +172,24 @@ function PcrRow({ pcr, project, onAction }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="flex flex-col gap-3">
               <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Reason</p>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Reason / เหตุผล</p>
                 <p className="text-sm text-slate-700 bg-white rounded-lg px-3 py-2 border border-slate-100">{pcr.reason}</p>
               </div>
               {pcr.rejectNote && (
                 <div className="bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
-                  <p className="text-xs font-semibold text-rose-700 mb-0.5">Rejection Note:</p>
+                  <p className="text-xs font-semibold text-rose-700 mb-0.5">Rejection Note / หมายเหตุการปฏิเสธ:</p>
                   <p className="text-sm text-rose-700">{pcr.rejectNote}</p>
                 </div>
               )}
               {pcr.closureNote && (
                 <div className="bg-purple-50 border border-purple-200 rounded-lg px-3 py-2">
-                  <p className="text-xs font-semibold text-purple-700 mb-0.5">Closure Note:</p>
+                  <p className="text-xs font-semibold text-purple-700 mb-0.5">Closure Note / หมายเหตุการปิด:</p>
                   <p className="text-sm text-purple-700">{pcr.closureNote}</p>
                 </div>
               )}
               {pcr.closureConfirmNote && (
                 <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2">
-                  <p className="text-xs font-semibold text-indigo-700 mb-0.5">AP Confirmation Note:</p>
+                  <p className="text-xs font-semibold text-indigo-700 mb-0.5">AP Confirmation Note / หมายเหตุยืนยัน AP:</p>
                   <p className="text-sm text-indigo-700">{pcr.closureConfirmNote}</p>
                 </div>
               )}
@@ -197,10 +197,10 @@ function PcrRow({ pcr, project, onAction }) {
 
             <div className="flex flex-col gap-3">
               <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Fund Utilization</p>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Fund Utilization / การใช้งบประมาณ</p>
                 <div className="bg-white rounded-lg px-3 py-3 border border-slate-100">
                   <div className="flex justify-between text-xs text-slate-500 mb-1">
-                    <span>Approved Spend</span>
+                    <span>Approved Spend / ยอดเบิกจ่ายอนุมัติ</span>
                     <span>{utilizationPct}%</span>
                   </div>
                   <div className="w-full bg-slate-200 rounded-full h-2">
@@ -212,17 +212,17 @@ function PcrRow({ pcr, project, onAction }) {
                   <div className="flex justify-between mt-2 text-xs">
                     <span className="text-slate-500">PCR: <span className="font-semibold text-slate-700">{formatCurrency(pcr.amount)}</span></span>
                     <span className={cn('font-semibold', remaining < 0 ? 'text-rose-600' : 'text-emerald-600')}>
-                      Balance: {formatCurrency(remaining)}
+                      Balance / คงเหลือ: {formatCurrency(remaining)}
                     </span>
                   </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
-                {pcr.approvedBy && <div className="bg-white rounded px-2 py-1.5 border border-slate-100"><span className="text-slate-400">Approved by: </span>{getUserName(pcr.approvedBy)} ({formatDate(pcr.approvedAt)})</div>}
-                {pcr.acknowledgedBy && <div className="bg-white rounded px-2 py-1.5 border border-slate-100"><span className="text-slate-400">Acknowledged: </span>{getUserName(pcr.acknowledgedBy)} ({formatDate(pcr.acknowledgedAt)})</div>}
-                {pcr.closureConfirmedBy && <div className="bg-white rounded px-2 py-1.5 border border-slate-100"><span className="text-slate-400">Closure confirmed: </span>{getUserName(pcr.closureConfirmedBy)}</div>}
-                {pcr.closedBy && <div className="bg-white rounded px-2 py-1.5 border border-slate-100"><span className="text-slate-400">Closed by: </span>{getUserName(pcr.closedBy)} ({formatDate(pcr.closedAt)})</div>}
+                {pcr.approvedBy && <div className="bg-white rounded px-2 py-1.5 border border-slate-100"><span className="text-slate-400">Approved by / อนุมัติโดย: </span>{getUserName(pcr.approvedBy)} ({formatDate(pcr.approvedAt)})</div>}
+                {pcr.acknowledgedBy && <div className="bg-white rounded px-2 py-1.5 border border-slate-100"><span className="text-slate-400">Acknowledged / รับทราบโดย: </span>{getUserName(pcr.acknowledgedBy)} ({formatDate(pcr.acknowledgedAt)})</div>}
+                {pcr.closureConfirmedBy && <div className="bg-white rounded px-2 py-1.5 border border-slate-100"><span className="text-slate-400">Closure confirmed / ยืนยันการปิดโดย: </span>{getUserName(pcr.closureConfirmedBy)}</div>}
+                {pcr.closedBy && <div className="bg-white rounded px-2 py-1.5 border border-slate-100"><span className="text-slate-400">Closed by / ปิดโดย: </span>{getUserName(pcr.closedBy)} ({formatDate(pcr.closedAt)})</div>}
               </div>
             </div>
           </div>
@@ -290,10 +290,10 @@ export function PcrPage() {
     if (hasRole(ROLES.GM, ROLES.MD) && pcr.status === PCR_STATUS.PENDING_GM) {
       actions.push(
         <Button key="approve" variant="success" size="sm" onClick={() => approvePcr(pcr.id, currentUser.id)}>
-          <CheckCircle size={14} /> Approve PCR
+          <CheckCircle size={14} /> Approve PCR / อนุมัติ PCR
         </Button>,
         <Button key="reject" variant="danger" size="sm" onClick={() => setRejectTarget(pcr)}>
-          <XCircle size={14} /> Reject
+          <XCircle size={14} /> Reject / ปฏิเสธ
         </Button>
       );
     }
@@ -301,7 +301,7 @@ export function PcrPage() {
     if (hasRole(ROLES.AccountPay) && pcr.status === PCR_STATUS.APPROVED) {
       actions.push(
         <Button key="ack" variant="primary" size="sm" onClick={() => acknowledgePcr(pcr.id, currentUser.id)}>
-          <DollarSign size={14} /> Acknowledge (Fund Transferred)
+          <DollarSign size={14} /> Acknowledge (Fund Transferred) / รับทราบ (โอนเงินแล้ว)
         </Button>
       );
     }
@@ -309,7 +309,7 @@ export function PcrPage() {
     if (hasRole(ROLES.PM) && pcr.status === PCR_STATUS.GM_REJECTED) {
       actions.push(
         <Button key="edit" variant="warning" size="sm" onClick={() => setEditPcr(pcr)}>
-          <RefreshCw size={14} /> Edit & Resubmit
+          <RefreshCw size={14} /> Edit & Resubmit / แก้ไขและส่งใหม่
         </Button>
       );
     }
@@ -317,7 +317,7 @@ export function PcrPage() {
     if (hasRole(ROLES.PM) && pcr.status === PCR_STATUS.ACKNOWLEDGED) {
       actions.push(
         <Button key="close" variant="secondary" size="sm" onClick={() => setClosureTarget({ pcr, amountToReturn })}>
-          <Lock size={14} /> Request Closure
+          <Lock size={14} /> Request Closure / ขอปิด PCR
         </Button>
       );
     }
@@ -325,7 +325,7 @@ export function PcrPage() {
     if (hasRole(ROLES.AccountPay) && pcr.status === PCR_STATUS.CLOSURE_REQUESTED) {
       actions.push(
         <Button key="confirmreceipt" variant="success" size="sm" onClick={() => setConfirmReceiptTarget(pcr)}>
-          <CheckCircle size={14} /> Confirm Receipt of Funds
+          <CheckCircle size={14} /> Confirm Receipt of Funds / ยืนยันรับเงินคืน
         </Button>
       );
     }
@@ -333,7 +333,7 @@ export function PcrPage() {
     if (hasRole(ROLES.GM, ROLES.MD) && pcr.status === PCR_STATUS.CLOSURE_CONFIRMED) {
       actions.push(
         <Button key="officialclose" variant="primary" size="sm" onClick={() => officiallyClosePcr(pcr.id, currentUser.id)}>
-          <Lock size={14} /> Officially Close PCR
+          <Lock size={14} /> Officially Close PCR / ปิด PCR อย่างเป็นทางการ
         </Button>
       );
     }
@@ -348,12 +348,12 @@ export function PcrPage() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-xl font-bold text-slate-800">PCR Management</h2>
-          <p className="text-sm text-slate-500 mt-0.5">Petty Cash Requests – {visiblePcrs.length} record(s)</p>
+          <h2 className="text-xl font-bold text-slate-800">PCR Management <span className="text-base font-medium text-slate-500">/ จัดการ PCR</span></h2>
+          <p className="text-sm text-slate-500 mt-0.5">Petty Cash Requests / คำขอเงินสดย่อย – {visiblePcrs.length} รายการ</p>
         </div>
         {canCreate && (
           <Button onClick={() => setShowCreate(true)}>
-            <Plus size={16} /> New PCR
+            <Plus size={16} /> New PCR / สร้าง PCR ใหม่
           </Button>
         )}
       </div>
@@ -365,7 +365,7 @@ export function PcrPage() {
           onChange={(e) => setProjectFilter(e.target.value)}
           className="px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
         >
-          <option value="">All Projects</option>
+          <option value="">All Projects / ทุกโครงการ</option>
           {projects.map((p) => <option key={p.id} value={p.id}>{p.id} – {p.name}</option>)}
         </select>
         <select
@@ -373,7 +373,7 @@ export function PcrPage() {
           onChange={(e) => setStatusFilter(e.target.value)}
           className="px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
         >
-          <option value="">All Statuses</option>
+          <option value="">All Statuses / ทุกสถานะ</option>
           {allStatuses.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
       </div>
@@ -383,7 +383,7 @@ export function PcrPage() {
         <Card>
           <CardContent className="py-16 flex flex-col items-center gap-3 text-slate-400">
             <FileText size={40} />
-            <p className="font-medium">No PCRs found</p>
+            <p className="font-medium">No PCRs found / ไม่พบรายการ PCR</p>
           </CardContent>
         </Card>
       ) : (
@@ -400,8 +400,8 @@ export function PcrPage() {
       )}
 
       {/* Modals */}
-      <Modal open={showCreate} onClose={() => setShowCreate(false)} title="New Petty Cash Request (PCR)" size="md">
-        <PcrForm projects={pmProjects} onSubmit={handleCreate} onClose={() => setShowCreate(false)} title="Submit PCR" />
+      <Modal open={showCreate} onClose={() => setShowCreate(false)} title="New Petty Cash Request (PCR) / คำขอเงินสดย่อยใหม่" size="md">
+        <PcrForm projects={pmProjects} onSubmit={handleCreate} onClose={() => setShowCreate(false)} title="Submit PCR / ส่งคำขอ" />
       </Modal>
 
       <Modal open={!!editPcr} onClose={() => setEditPcr(null)} title={`Edit & Resubmit – ${editPcr?.id}`} size="md">
@@ -411,7 +411,7 @@ export function PcrPage() {
             projects={pmProjects}
             onSubmit={handleResubmit}
             onClose={() => setEditPcr(null)}
-            title="Resubmit PCR"
+            title="Resubmit PCR / ส่งคำขอใหม่"
           />
         )}
       </Modal>
@@ -423,7 +423,7 @@ export function PcrPage() {
         onConfirm={(note) => { rejectPcr(rejectTarget.id, currentUser.id, note); setRejectTarget(null); }}
       />
 
-      <Modal open={!!closureTarget} onClose={() => setClosureTarget(null)} title="Request PCR Closure" size="sm">
+      <Modal open={!!closureTarget} onClose={() => setClosureTarget(null)} title="Request PCR Closure / ขอปิด PCR" size="sm">
         {closureTarget && (
           <ClosureModalContent
             onClose={() => setClosureTarget(null)}
@@ -434,7 +434,7 @@ export function PcrPage() {
         )}
       </Modal>
 
-      <Modal open={!!confirmReceiptTarget} onClose={() => setConfirmReceiptTarget(null)} title="Confirm Receipt of Returned Funds" size="sm">
+      <Modal open={!!confirmReceiptTarget} onClose={() => setConfirmReceiptTarget(null)} title="Confirm Receipt of Returned Funds / ยืนยันรับเงินคืน" size="sm">
         {confirmReceiptTarget && (
           <ConfirmReceiptModalContent
             onClose={() => setConfirmReceiptTarget(null)}
