@@ -1,0 +1,616 @@
+import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { initializeApp } from 'firebase/app';
+import { getFirestore, collection, doc, getDocs, addDoc, updateDoc, deleteDoc, setDoc, getDoc, query, orderBy, where } from 'firebase/firestore';
+import { 
+  initialProjects,
+  initialPcrs,
+  initialPccs,
+  initialPccItems,
+  PCR_STATUS,
+  PCC_STATUS
+} from '../data/mockData.js';
+
+// Firebase configuration
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+};
+
+const ROOT_COLLECTION = 'cmg-petty-cash-management';
+const ROOT_DOC = 'root';
+
+const DataContext = createContext(null);
+
+export function DataProvider({ children }) {
+  const [projects, setProjects] = useState(initialProjects);
+  const [pcrs, setPcrs] = useState(initialPcrs);
+  const [pccs, setPccs] = useState(initialPccs);
+  const [pccItems, setPccItems] = useState(initialPccItems);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [firebaseReady, setFirebaseReady] = useState(false);
+  const [db, setDb] = useState(null);
+
+  // Initialize Firebase
+  useEffect(() => {
+    const initFirebase = async () => {
+      try {
+        const app = initializeApp(firebaseConfig);
+        const firestore = getFirestore(app);
+        setDb(firestore);
+        setFirebaseReady(true);
+        console.log('Firebase initialized successfully');
+        
+        // Try to load data from Firebase
+        await loadFirebaseData(firestore);
+      } catch (err) {
+        console.warn('Firebase initialization failed, using mock data:', err);
+        setError('Firebase unavailable - using local data');
+        setFirebaseReady(false);
+      }
+    };
+
+    initFirebase();
+  }, []);
+
+  // Helper function to get subcollection reference
+  const getSubcollection = (subcollectionName) => {
+    if (!db) return null;
+    return collection(db, ROOT_COLLECTION, ROOT_DOC, subcollectionName);
+  };
+
+  // Load data from Firebase
+  const loadFirebaseData = async (firestore) => {
+    if (!firestore) return;
+
+    try {
+      setLoading(true);
+      
+      const loadCollection = async (collectionName) => {
+        try {
+          const collectionRef = collection(firestore, ROOT_COLLECTION, ROOT_DOC, collectionName);
+          const snapshot = await getDocs(collectionRef);
+          return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        } catch (err) {
+          console.warn(`Failed to load ${collectionName}:`, err);
+          return [];
+        }
+      };
+
+      const [firebaseProjects, firebasePcrs, firebasePccs, firebasePccItems] = await Promise.all([
+        loadCollection('projects'),
+        loadCollection('pcrs'),
+        loadCollection('pccs'),
+        loadCollection('pccItems')
+      ]);
+
+      // Only update if we got data from Firebase
+      if (firebaseProjects.length > 0) setProjects(firebaseProjects);
+      if (firebasePcrs.length > 0) setPcrs(firebasePcrs);
+      if (firebasePccs.length > 0) setPccs(firebasePccs);
+      if (firebasePccItems.length > 0) setPccItems(firebasePccItems);
+
+      console.log('Firebase data loaded successfully');
+    } catch (err) {
+      console.warn('Failed to load Firebase data:', err);
+      setError('Failed to load Firebase data - using local data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Save to Firebase helper
+  const saveToFirebase = async (collectionName, docId, data) => {
+    if (!firebaseReady || !db) {
+      console.warn('Firebase not ready, data not saved');
+      return false;
+    }
+
+    try {
+      const collectionRef = getSubcollection(collectionName);
+      if (!collectionRef) return false;
+
+      await setDoc(doc(collectionRef, docId), data);
+      console.log(`Saved ${docId} to ${collectionName}`);
+      return true;
+    } catch (err) {
+      console.error(`Failed to save to ${collectionName}:`, err);
+      setError(`Failed to save to Firebase: ${err.message}`);
+      return false;
+    }
+  };
+
+  // ─── Derived helpers ─────────────────────────────────────────────────────────
+
+  const getPcrsByProject = useCallback(
+    (projectId) => pcrs.filter((p) => p.projectId === projectId),
+    [pcrs]
+  );
+
+  const getPccsByPcr = useCallback(
+    (pcrId) => pccs.filter((p) => p.pcrId === pcrId),
+    [pccs]
+  );
+
+  const getItemsByPcc = useCallback(
+    (pccId) => pccItems.filter((i) => i.pccId === pccId),
+    [pccItems]
+  );
+
+  const getPcrById = useCallback((id) => pcrs.find((p) => p.id === id), [pcrs]);
+  const getPccById = useCallback((id) => pccs.find((p) => p.id === id), [pccs]);
+  const getProjectById = useCallback((id) => projects.find((p) => p.id === id), [projects]);
+
+  const getPcrRemainingBalance = useCallback(
+    (pcrId) => {
+      const pcr = getPcrById(pcrId);
+      if (!pcr) return 0;
+      const consumed = pccs
+        .filter(
+          (p) =>
+            p.pcrId === pcrId &&
+            p.status !== PCC_STATUS.AP_REJECTED &&
+            p.status !== PCC_STATUS.GM_REJECTED
+        )
+        .reduce((sum, p) => sum + p.totalAmount, 0);
+      return pcr.amount - consumed;
+    },
+    [pcrs, pccs, getPcrById]
+  );
+
+  const getPcrApprovedSpend = useCallback(
+    (pcrId) =>
+      pccs
+        .filter((p) => p.pcrId === pcrId && p.status === PCC_STATUS.APPROVED)
+        .reduce((sum, p) => sum + p.totalAmount, 0),
+    [pccs]
+  );
+
+  // ─── Project CRUD ─────────────────────────────────────────────────────────────
+
+  const createProject = useCallback(
+    async (data, createdBy) => {
+      const year = new Date().getFullYear();
+      const existingNums = projects
+        .map((p) => parseInt(p.id.split('-').pop(), 10))
+        .filter((n) => !isNaN(n));
+      const next = existingNums.length > 0 ? Math.max(...existingNums) + 1 : 1;
+      const id = `PRJ-${year}-J-${String(next).padStart(3, '0')}`;
+      
+      const project = { 
+        ...data, 
+        id, 
+        createdBy, 
+        createdAt: new Date().toISOString().slice(0, 10) 
+      };
+      
+      // Update local state immediately
+      setProjects((prev) => [...prev, project]);
+      
+      // Save to Firebase in background
+      await saveToFirebase('projects', id, project);
+      
+      return project;
+    },
+    [projects, firebaseReady, saveToFirebase]
+  );
+
+  const updateProject = useCallback(async (id, data) => {
+    // Update local state immediately
+    setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, ...data } : p)));
+    
+    // Save to Firebase in background
+    const project = projects.find(p => p.id === id);
+    if (project) {
+      await saveToFirebase('projects', id, { ...project, ...data });
+    }
+  }, [projects, saveToFirebase]);
+
+  // ─── PCR CRUD & Workflow ──────────────────────────────────────────────────────
+
+  const createPcr = useCallback(
+    async (data, createdBy) => {
+      const projectPcrs = pcrs.filter((p) => p.projectId === data.projectId);
+      const next = projectPcrs.length + 1;
+      const projSeq = data.projectId.split('-').pop();
+      const id = `PCR-J-${projSeq}-${String(next).padStart(4, '0')}`;
+      
+      const pcr = {
+        ...data,
+        id,
+        status: PCR_STATUS.PENDING_GM,
+        rejectNote: '',
+        createdBy,
+        approvedBy: null,
+        approvedAt: null,
+        acknowledgedBy: null,
+        acknowledgedAt: null,
+        closureRequestedBy: null,
+        closureRequestedAt: null,
+        closureNote: '',
+        closureConfirmedBy: null,
+        closureConfirmedAt: null,
+        closureConfirmNote: '',
+        closedBy: null,
+        closedAt: null,
+      };
+      
+      // Update local state immediately
+      setPcrs((prev) => [...prev, pcr]);
+      
+      // Save to Firebase in background
+      await saveToFirebase('pcrs', id, pcr);
+      
+      return pcr;
+    },
+    [pcrs, saveToFirebase]
+  );
+
+  const updatePcrStatus = useCallback(async (id, updates) => {
+    // Update local state immediately
+    setPcrs((prev) => prev.map((p) => (p.id === id ? { ...p, ...updates } : p)));
+    
+    // Save to Firebase in background
+    const pcr = pcrs.find(p => p.id === id);
+    if (pcr) {
+      await saveToFirebase('pcrs', id, { ...pcr, ...updates });
+    }
+  }, [pcrs, saveToFirebase]);
+
+  const approvePcr = useCallback(
+    (id, userId) =>
+      updatePcrStatus(id, {
+        status: PCR_STATUS.APPROVED,
+        approvedBy: userId,
+        approvedAt: new Date().toISOString().slice(0, 10),
+        rejectNote: '',
+      }),
+    [updatePcrStatus]
+  );
+
+  const rejectPcr = useCallback(
+    (id, userId, rejectNote) =>
+      updatePcrStatus(id, {
+        status: PCR_STATUS.GM_REJECTED,
+        rejectNote,
+      }),
+    [updatePcrStatus]
+  );
+
+  const resubmitPcr = useCallback(
+    (id, data) =>
+      updatePcrStatus(id, {
+        ...data,
+        status: PCR_STATUS.PENDING_GM,
+        rejectNote: '',
+      }),
+    [updatePcrStatus]
+  );
+
+  const acknowledgePcr = useCallback(
+    (id, userId) =>
+      updatePcrStatus(id, {
+        status: PCR_STATUS.ACKNOWLEDGED,
+        acknowledgedBy: userId,
+        acknowledgedAt: new Date().toISOString().slice(0, 10),
+      }),
+    [updatePcrStatus]
+  );
+
+  const requestClosePcr = useCallback(
+    (id, userId, closureNote) =>
+      updatePcrStatus(id, {
+        status: PCR_STATUS.CLOSURE_REQUESTED,
+        closureRequestedBy: userId,
+        closureRequestedAt: new Date().toISOString().slice(0, 10),
+        closureNote,
+      }),
+    [updatePcrStatus]
+  );
+
+  const confirmClosurePcr = useCallback(
+    (id, userId, note) =>
+      updatePcrStatus(id, {
+        status: PCR_STATUS.CLOSURE_CONFIRMED,
+        closureConfirmedBy: userId,
+        closureConfirmedAt: new Date().toISOString().slice(0, 10),
+        closureConfirmNote: note,
+      }),
+    [updatePcrStatus]
+  );
+
+  const officiallyClosePcr = useCallback(
+    (id, userId) =>
+      updatePcrStatus(id, {
+        status: PCR_STATUS.CLOSED,
+        closedBy: userId,
+        closedAt: new Date().toISOString().slice(0, 10),
+      }),
+    [updatePcrStatus]
+  );
+
+  // ─── PCC CRUD & Workflow ──────────────────────────────────────────────────────
+
+  const createPcc = useCallback(
+    async (data, items, createdBy) => {
+      const pcrPccs = pccs.filter((p) => p.pcrId === data.pcrId);
+      const next = pcrPccs.length + 1;
+      const id = `${data.pcrId}-PCC-${String(next).padStart(3, '0')}`;
+      const totalAmount = items.reduce((s, i) => s + Number(i.amount), 0);
+      
+      const pcc = {
+        ...data,
+        id,
+        totalAmount,
+        status: PCC_STATUS.PENDING_PM,
+        rejectNote: '',
+        createdBy,
+        verifiedByPM: null,
+        verifiedByPMAt: null,
+        verifiedByAP: null,
+        verifiedByAPAt: null,
+        approvedByGM: null,
+        approvedByGMAt: null,
+      };
+      
+      // Update local state immediately
+      setPccs((prev) => [...prev, pcc]);
+      
+      // Create PCC items
+      const newItems = items.map((item, idx) => ({
+        ...item,
+        id: `ITEM-${Date.now()}-${idx}`,
+        pccId: id,
+        amount: Number(item.amount),
+      }));
+      
+      setPccItems((prev) => [...prev, ...newItems]);
+      
+      // Save to Firebase in background
+      await saveToFirebase('pccs', id, pcc);
+      
+      // Save PCC items to Firebase
+      for (const item of newItems) {
+        await saveToFirebase('pccItems', item.id, item);
+      }
+      
+      return pcc;
+    },
+    [pccs, saveToFirebase]
+  );
+
+  const updatePccStatus = useCallback(async (id, updates) => {
+    // Update local state immediately
+    setPccs((prev) => prev.map((p) => (p.id === id ? { ...p, ...updates } : p)));
+    
+    // Save to Firebase in background
+    const pcc = pccs.find(p => p.id === id);
+    if (pcc) {
+      await saveToFirebase('pccs', id, { ...pcc, ...updates });
+    }
+  }, [pccs, saveToFirebase]);
+
+  const pmVerifyPcc = useCallback(
+    (id, userId) =>
+      updatePccStatus(id, {
+        status: PCC_STATUS.PENDING_AP,
+        verifiedByPM: userId,
+        verifiedByPMAt: new Date().toISOString().slice(0, 10),
+      }),
+    [updatePccStatus]
+  );
+
+  const apVerifyPcc = useCallback(
+    (id, userId) =>
+      updatePccStatus(id, {
+        status: PCC_STATUS.PENDING_GM,
+        verifiedByAP: userId,
+        verifiedByAPAt: new Date().toISOString().slice(0, 10),
+        rejectNote: '',
+      }),
+    [updatePccStatus]
+  );
+
+  const apRejectPcc = useCallback(
+    (id, userId, rejectNote) =>
+      updatePccStatus(id, {
+        status: PCC_STATUS.AP_REJECTED,
+        rejectNote,
+      }),
+    [updatePccStatus]
+  );
+
+  const gmApprovePcc = useCallback(
+    (id, userId) =>
+      updatePccStatus(id, {
+        status: PCC_STATUS.APPROVED,
+        approvedByGM: userId,
+        approvedByGMAt: new Date().toISOString().slice(0, 10),
+        rejectNote: '',
+      }),
+    [updatePccStatus]
+  );
+
+  const gmRejectPcc = useCallback(
+    (id, userId, rejectNote) =>
+      updatePccStatus(id, {
+        status: PCC_STATUS.GM_REJECTED,
+        rejectNote,
+      }),
+    [updatePccStatus]
+  );
+
+  const resubmitPcc = useCallback(
+    async (id, items) => {
+      const totalAmount = items.reduce((s, i) => s + Number(i.amount), 0);
+      
+      // Update PCC status
+      await updatePccStatus(id, {
+        status: PCC_STATUS.PENDING_PM,
+        totalAmount,
+        rejectNote: '',
+        verifiedByAP: null,
+        verifiedByAPAt: null,
+        approvedByGM: null,
+        approvedByGMAt: null,
+      });
+      
+      // Update PCC items locally
+      setPccItems((prev) => {
+        const filtered = prev.filter((i) => i.pccId !== id);
+        const newItems = items.map((item, idx) => ({
+          ...item,
+          id: `ITEM-${Date.now()}-${idx}`,
+          pccId: id,
+          amount: Number(item.amount),
+        }));
+        return [...filtered, ...newItems];
+      });
+      
+      // Save new items to Firebase
+      const newItems = items.map((item, idx) => ({
+        ...item,
+        id: `ITEM-${Date.now()}-${idx}`,
+        pccId: id,
+        amount: Number(item.amount),
+      }));
+      
+      for (const item of newItems) {
+        await saveToFirebase('pccItems', item.id, item);
+      }
+    },
+    [updatePccStatus, saveToFirebase]
+  );
+
+  // ─── Dashboard helpers ────────────────────────────────────────────────────────
+
+  const getTotalOutstandingCash = useCallback(() => {
+    return pcrs
+      .filter((p) => p.status === PCR_STATUS.ACKNOWLEDGED)
+      .reduce((sum, pcr) => {
+        const approved = getPcrApprovedSpend(pcr.id);
+        return sum + (pcr.amount - approved);
+      }, 0);
+  }, [pcrs, getPcrApprovedSpend]);
+
+  const getUtilizationByProject = useCallback(() => {
+    return projects.map((proj) => {
+      const projPcrs = pcrs.filter((p) => p.projectId === proj.id);
+      const totalApproved = projPcrs
+        .filter((p) => [PCR_STATUS.APPROVED, PCR_STATUS.ACKNOWLEDGED, PCR_STATUS.CLOSED].includes(p.status))
+        .reduce((s, p) => s + p.amount, 0);
+      const totalClaimed = projPcrs.reduce((s, pcr) => s + getPcrApprovedSpend(pcr.id), 0);
+      return {
+        name: proj.name.length > 20 ? proj.name.slice(0, 18) + '…' : proj.name,
+        fullName: proj.name,
+        approved: totalApproved,
+        claimed: totalClaimed,
+      };
+    });
+  }, [projects, pcrs, getPcrApprovedSpend]);
+
+  const getAgingAlerts = useCallback(() => {
+    const today = new Date();
+    return pcrs.filter(
+      (p) =>
+        p.status === PCR_STATUS.ACKNOWLEDGED &&
+        p.dueDate &&
+        new Date(p.dueDate) < today
+    );
+  }, [pcrs]);
+
+  return (
+    <>
+      {error && (
+        <div className="fixed top-4 right-4 z-50 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg shadow-lg max-w-sm">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-yellow-700">
+                <strong>Firebase Status</strong><br/>
+                {error}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {firebaseReady && (
+        <div className="fixed bottom-4 left-4 z-50 bg-green-50 border-l-4 border-green-400 p-3 rounded-lg shadow-lg">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <svg className="h-4 w-4 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-2">
+              <p className="text-sm text-green-700 font-medium">Firebase Connected</p>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      <DataContext.Provider
+        value={{
+          projects,
+          pcrs,
+          pccs,
+          pccItems,
+          loading,
+          error,
+          firebaseReady,
+          // Getters
+          getPcrsByProject,
+          getPccsByPcr,
+          getItemsByPcc,
+          getPcrById,
+          getPccById,
+          getProjectById,
+          getPcrRemainingBalance,
+          getPcrApprovedSpend,
+          // Project actions
+          createProject,
+          updateProject,
+          // PCR actions
+          createPcr,
+          approvePcr,
+          rejectPcr,
+          resubmitPcr,
+          acknowledgePcr,
+          requestClosePcr,
+          confirmClosurePcr,
+          officiallyClosePcr,
+          // PCC actions
+          createPcc,
+          pmVerifyPcc,
+          apVerifyPcc,
+          apRejectPcc,
+          gmApprovePcc,
+          gmRejectPcc,
+          resubmitPcc,
+          // Dashboard
+          getTotalOutstandingCash,
+          getUtilizationByProject,
+          getAgingAlerts,
+        }}
+      >
+        {children}
+      </DataContext.Provider>
+    </>
+  );
+}
+
+export function useData() {
+  const ctx = useContext(DataContext);
+  if (!ctx) throw new Error('useData must be used within DataProvider');
+  return ctx;
+}

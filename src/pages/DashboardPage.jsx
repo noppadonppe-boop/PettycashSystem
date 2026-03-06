@@ -5,7 +5,7 @@ import {
 } from 'recharts';
 import { DollarSign, AlertTriangle, TrendingUp, FileText, Receipt, FolderOpen } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useData } from '../context/DataContext';
+import { useData } from '../context/SafeFirebaseContext';
 import { USERS, PCR_STATUS, PCC_STATUS } from '../data/mockData';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';

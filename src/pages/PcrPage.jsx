@@ -5,7 +5,7 @@ import {
   AlertTriangle, ChevronDown, ChevronUp, RefreshCw, Lock
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useData } from '../context/DataContext';
+import { useData } from '../context/SafeFirebaseContext';
 import { ROLES, USERS, PCR_STATUS } from '../data/mockData';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';

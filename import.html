@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Import Mock Data to Firebase</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+        .log {
+            background: #f8f8f8;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success {
+            color: #4CAF50;
+        }
+        .error {
+            color: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔥 Firebase Mock Data Import</h1>
+        <p>This tool will import your existing mock data into Firebase Firestore.</p>
+        
+        <div>
+            <h3>Database Structure:</h3>
+            <ul>
+                <li><strong>Collection:</strong> cmg-petty-cash-management</li>
+                <li><strong>Document:</strong> root</li>
+                <li><strong>Subcollections:</strong>
+                    <ul>
+                        <li>users (9 documents)</li>
+                        <li>projects (3 documents)</li>
+                        <li>pcrs (5 documents)</li>
+                        <li>pccs (5 documents)</li>
+                        <li>pccItems (14 documents)</li>
+                        <li>roles (6 documents)</li>
+                        <li>statuses (13 documents)</li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+        
+        <button id="importBtn" onclick="importData()">🚀 Import Mock Data to Firebase</button>
+        
+        <div id="log" class="log" style="display: none;"></div>
+    </div>
+
+    <script type="module">
+        import { runImport } from './src/scripts/importMockData.js';
+        
+        window.importData = async function() {
+            const btn = document.getElementById('importBtn');
+            const log = document.getElementById('log');
+            
+            btn.disabled = true;
+            btn.textContent = '⏳ Importing...';
+            log.style.display = 'block';
+            log.innerHTML = 'Starting import process...\n';
+            
+            try {
+                // Capture console logs
+                const originalLog = console.log;
+                const originalError = console.error;
+                
+                console.log = function(...args) {
+                    log.innerHTML += args.join(' ') + '\n';
+                    log.scrollTop = log.scrollHeight;
+                    originalLog.apply(console, args);
+                };
+                
+                console.error = function(...args) {
+                    log.innerHTML += '<span class="error">' + args.join(' ') + '</span>\n';
+                    log.scrollTop = log.scrollHeight;
+                    originalError.apply(console, args);
+                };
+                
+                await runImport();
+                
+                log.innerHTML += '<span class="success">✅ Import completed successfully!</span>\n';
+                btn.textContent = '✅ Import Completed';
+                btn.style.background = '#4CAF50';
+                
+                // Restore console
+                console.log = originalLog;
+                console.error = originalError;
+                
+            } catch (error) {
+                log.innerHTML += '<span class="error">❌ Import failed: ' + error.message + '</span>\n';
+                btn.textContent = '❌ Import Failed';
+                btn.style.background = '#f44336';
+                btn.disabled = false;
+                
+                console.error('Import error:', error);
+            }
+        };
+    </script>
+</body>
+</html>

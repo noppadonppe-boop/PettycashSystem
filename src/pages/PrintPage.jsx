@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { Printer, FileText, Receipt, ChevronDown, ChevronUp, Building2 } from 'lucide-react';
-import { useData } from '../context/DataContext';
+import { useData } from '../context/SafeFirebaseContext';
 import { useAuth } from '../context/AuthContext';
 import { USERS, PCR_STATUS, PCC_STATUS } from '../data/mockData';
 import { formatCurrency, formatDate, cn } from '../lib/utils';

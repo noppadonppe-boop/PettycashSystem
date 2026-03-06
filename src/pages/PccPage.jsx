@@ -5,7 +5,7 @@ import {
   Paperclip, Camera, X, ImageIcon, FileText as FileIcon,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useData } from '../context/DataContext';
+import { useData } from '../context/SafeFirebaseContext';
 import { ROLES, USERS, PCC_STATUS, PCR_STATUS } from '../data/mockData';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';

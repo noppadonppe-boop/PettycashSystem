@@ -5,7 +5,7 @@ import {
   ChevronDown, Building2, Menu, X, LogOut, Bell
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useData } from '../context/DataContext';
+import { useData } from '../context/SafeFirebaseContext';
 import { cn } from '../lib/utils';
 import { ROLES } from '../data/mockData';
 
