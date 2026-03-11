@@ -1,44 +1,13 @@
-export const USERS = [
-  { id: 'u1', name: 'Robert Chen', role: 'MD', avatar: 'RC' },
-  { id: 'u2', name: 'Sarah Williams', role: 'GM', avatar: 'SW' },
-  { id: 'u3', name: 'James Tran', role: 'PM', avatar: 'JT' },
-  { id: 'u4', name: 'Lisa Nguyen', role: 'PM', avatar: 'LN' },
-  { id: 'u5', name: 'David Park', role: 'AccountPay', avatar: 'DP' },
-  { id: 'u6', name: 'Maria Santos', role: 'SiteAdmin', avatar: 'MS' },
-  { id: 'u7', name: 'Kevin Lam', role: 'SiteAdmin', avatar: 'KL' },
-  { id: 'u8', name: 'Tom Bradley', role: 'CM', avatar: 'TB' },
-  { id: 'u9', name: 'Anna Vo', role: 'CM', avatar: 'AV' },
-];
+import { serverTimestamp, doc, writeBatch } from 'firebase/firestore';
+import { db, APP_NAME } from '../firebase/firebase';
 
-export const ROLES = {
-  MD: 'MD',
-  GM: 'GM',
-  PM: 'PM',
-  AccountPay: 'AccountPay',
-  SiteAdmin: 'SiteAdmin',
-  CM: 'CM',
-};
+const ROOT = 'root';
 
-export const PCR_STATUS = {
-  PENDING_GM: 'Pending GM',
-  GM_REJECTED: 'GM Rejected',
-  APPROVED: 'Approved',
-  ACKNOWLEDGED: 'Acknowledged by AP',
-  CLOSURE_REQUESTED: 'Closure Requested',
-  CLOSURE_CONFIRMED: 'Closure Confirmed by AP',
-  CLOSED: 'Closed',
-};
+function docRef(col: string, id: string) {
+  return doc(db, APP_NAME, ROOT, col, id);
+}
 
-export const PCC_STATUS = {
-  PENDING_PM: 'Pending PM',
-  PENDING_AP: 'Pending AP',
-  AP_REJECTED: 'AP Rejected',
-  PENDING_GM: 'Pending GM',
-  GM_REJECTED: 'GM Rejected',
-  APPROVED: 'Approved',
-};
-
-export const initialProjects = [
+const PROJECTS = [
   {
     id: 'PRJ-2026-J-001',
     name: 'Sunrise Tower Complex',
@@ -89,7 +58,7 @@ export const initialProjects = [
   },
 ];
 
-export const initialPcrs = [
+const PCRS = [
   {
     id: 'PCR-J-001-0001',
     projectId: 'PRJ-2026-J-001',
@@ -97,7 +66,7 @@ export const initialPcrs = [
     amount: 150000,
     dueDate: '2026-04-20',
     reason: 'เงินสดย่อยสำหรับค่าวัสดุก่อสร้างพื้นฐาน ค่าแรงงานรายวัน และค่าใช้จ่ายเบ็ดเตล็ดในไซต์',
-    status: PCR_STATUS.ACKNOWLEDGED,
+    status: 'Acknowledged by AP',
     rejectNote: '',
     createdBy: 'u3',
     approvedBy: 'u2',
@@ -121,7 +90,7 @@ export const initialPcrs = [
     amount: 80000,
     dueDate: '2026-05-15',
     reason: 'เติมเงินสดย่อย รอบที่ 2 สำหรับงานโครงสร้างชั้นที่ 10-15',
-    status: PCR_STATUS.PENDING_GM,
+    status: 'Pending GM',
     rejectNote: '',
     createdBy: 'u3',
     approvedBy: null,
@@ -143,9 +112,9 @@ export const initialPcrs = [
     projectId: 'PRJ-2026-J-002',
     date: '2026-02-05',
     amount: 95000,
-    dueDate: '2026-05-05',
+    dueDate: '2025-12-31',
     reason: 'เงินสดย่อยสำหรับโครงการปรับปรุงสะพาน ค่าอุปกรณ์ความปลอดภัย และค่าแรงงาน',
-    status: PCR_STATUS.ACKNOWLEDGED,
+    status: 'Acknowledged by AP',
     rejectNote: '',
     createdBy: 'u4',
     approvedBy: 'u2',
@@ -169,7 +138,7 @@ export const initialPcrs = [
     amount: 45000,
     dueDate: '2026-04-18',
     reason: 'ค่าซ่อมบำรุงเร่งด่วนที่พบระหว่างการสำรวจโครงสร้าง',
-    status: PCR_STATUS.GM_REJECTED,
+    status: 'GM Rejected',
     rejectNote: 'วงเงินเกินกว่างบประมาณรายเดือนที่กำหนด กรุณาส่งใหม่พร้อมรายละเอียด',
     createdBy: 'u4',
     approvedBy: null,
@@ -193,7 +162,7 @@ export const initialPcrs = [
     amount: 220000,
     dueDate: '2026-06-05',
     reason: 'เงินสดย่อย Phase 1: ค่าปรับพื้นที่ ระบบสาธารณูปโภค และค่าแรงงานระยะแรก',
-    status: PCR_STATUS.APPROVED,
+    status: 'Approved',
     rejectNote: '',
     createdBy: 'u3',
     approvedBy: 'u1',
@@ -210,9 +179,33 @@ export const initialPcrs = [
     closedAt: null,
     createdAt: '2026-03-05',
   },
+  {
+    id: 'PCR-J-004-0001',
+    projectId: 'PRJ-2026-J-004',
+    date: '2026-04-10',
+    amount: 180000,
+    dueDate: '2026-07-10',
+    reason: 'เงินสดย่อยสำหรับงานฐานราก Pile Cap และงานสาธารณูปโภคชั่วคราว',
+    status: 'Closure Requested',
+    rejectNote: '',
+    createdBy: 'u4',
+    approvedBy: 'u2',
+    approvedAt: '2026-04-12',
+    acknowledgedBy: 'u5',
+    acknowledgedAt: '2026-04-13',
+    closureRequestedBy: 'u4',
+    closureRequestedAt: '2026-06-30',
+    closureNote: 'ใช้วงเงินครบแล้ว ขอปิดและส่งคืนเงินส่วนที่เหลือ 12,500 บาท',
+    closureConfirmedBy: null,
+    closureConfirmedAt: null,
+    closureConfirmNote: '',
+    closedBy: null,
+    closedAt: null,
+    createdAt: '2026-04-10',
+  },
 ];
 
-export const initialPccs = [
+const PCCS = [
   {
     id: 'PCR-J-001-0001-PCC-001',
     pcrId: 'PCR-J-001-0001',
@@ -220,7 +213,7 @@ export const initialPccs = [
     requester: 'u6',
     date: '2026-01-25',
     totalAmount: 28500,
-    status: PCC_STATUS.APPROVED,
+    status: 'Approved',
     rejectNote: '',
     createdBy: 'u6',
     verifiedByPM: 'u3',
@@ -238,7 +231,7 @@ export const initialPccs = [
     requester: 'u6',
     date: '2026-02-03',
     totalAmount: 41200,
-    status: PCC_STATUS.APPROVED,
+    status: 'Approved',
     rejectNote: '',
     createdBy: 'u6',
     verifiedByPM: 'u3',
@@ -256,7 +249,7 @@ export const initialPccs = [
     requester: 'u6',
     date: '2026-02-20',
     totalAmount: 19800,
-    status: PCC_STATUS.PENDING_AP,
+    status: 'Pending AP',
     rejectNote: '',
     createdBy: 'u6',
     verifiedByPM: 'u3',
@@ -274,7 +267,7 @@ export const initialPccs = [
     requester: 'u7',
     date: '2026-02-12',
     totalAmount: 35750,
-    status: PCC_STATUS.PENDING_GM,
+    status: 'Pending GM',
     rejectNote: '',
     createdBy: 'u7',
     verifiedByPM: 'u4',
@@ -292,7 +285,7 @@ export const initialPccs = [
     requester: 'u7',
     date: '2026-02-25',
     totalAmount: 22300,
-    status: PCC_STATUS.PENDING_PM,
+    status: 'Pending PM',
     rejectNote: '',
     createdBy: 'u7',
     verifiedByPM: null,
@@ -303,9 +296,63 @@ export const initialPccs = [
     approvedByGMAt: null,
     createdAt: '2026-02-25',
   },
+  {
+    id: 'PCR-J-004-0001-PCC-001',
+    pcrId: 'PCR-J-004-0001',
+    projectId: 'PRJ-2026-J-004',
+    requester: 'u7',
+    date: '2026-04-20',
+    totalAmount: 52000,
+    status: 'Approved',
+    rejectNote: '',
+    createdBy: 'u7',
+    verifiedByPM: 'u4',
+    verifiedByPMAt: '2026-04-21',
+    verifiedByAP: 'u5',
+    verifiedByAPAt: '2026-04-22',
+    approvedByGM: 'u2',
+    approvedByGMAt: '2026-04-23',
+    createdAt: '2026-04-20',
+  },
+  {
+    id: 'PCR-J-004-0001-PCC-002',
+    pcrId: 'PCR-J-004-0001',
+    projectId: 'PRJ-2026-J-004',
+    requester: 'u6',
+    date: '2026-05-10',
+    totalAmount: 67800,
+    status: 'Approved',
+    rejectNote: '',
+    createdBy: 'u6',
+    verifiedByPM: 'u4',
+    verifiedByPMAt: '2026-05-11',
+    verifiedByAP: 'u5',
+    verifiedByAPAt: '2026-05-12',
+    approvedByGM: 'u2',
+    approvedByGMAt: '2026-05-13',
+    createdAt: '2026-05-10',
+  },
+  {
+    id: 'PCR-J-004-0001-PCC-003',
+    pcrId: 'PCR-J-004-0001',
+    projectId: 'PRJ-2026-J-004',
+    requester: 'u6',
+    date: '2026-06-10',
+    totalAmount: 47700,
+    status: 'AP Rejected',
+    rejectNote: 'ใบเสร็จไม่ครบถ้วน กรุณาแนบหลักฐานการชำระเงินเพิ่มเติม',
+    createdBy: 'u6',
+    verifiedByPM: 'u4',
+    verifiedByPMAt: '2026-06-11',
+    verifiedByAP: null,
+    verifiedByAPAt: null,
+    approvedByGM: null,
+    approvedByGMAt: null,
+    createdAt: '2026-06-10',
+  },
 ];
 
-export const initialPccItems = [
+const PCC_ITEMS = [
   { id: 'ITEM-001', pccId: 'PCR-J-001-0001-PCC-001', description: 'ปูนซีเมนต์ (50 ถุง)', amount: 9500, reason: 'งานพื้นชั้น 1', createdAt: '2026-01-25' },
   { id: 'ITEM-002', pccId: 'PCR-J-001-0001-PCC-001', description: 'หมวกนิรภัยและอุปกรณ์ความปลอดภัย (20 ชุด)', amount: 8800, reason: 'ความปลอดภัยในไซต์', createdAt: '2026-01-25' },
   { id: 'ITEM-003', pccId: 'PCR-J-001-0001-PCC-001', description: 'ค่าอาหารกลางวันทีมงาน', amount: 5200, reason: 'ทำงานล่วงเวลา', createdAt: '2026-01-25' },
@@ -320,4 +367,55 @@ export const initialPccItems = [
   { id: 'ITEM-012', pccId: 'PCR-J-002-0001-PCC-001', description: 'แผงกั้นความปลอดภัย', amount: 8250, reason: 'จัดการจราจร', createdAt: '2026-02-12' },
   { id: 'ITEM-013', pccId: 'PCR-J-002-0001-PCC-002', description: 'น็อตและอุปกรณ์ยึด', amount: 12300, reason: 'งานโครงเหล็ก', createdAt: '2026-02-25' },
   { id: 'ITEM-014', pccId: 'PCR-J-002-0001-PCC-002', description: 'เมมเบรนกันน้ำ', amount: 10000, reason: 'กันซึมพื้นสะพาน', createdAt: '2026-02-25' },
+  { id: 'ITEM-015', pccId: 'PCR-J-004-0001-PCC-001', description: 'ค่าเจาะเสาเข็ม (40 ต้น)', amount: 28000, reason: 'งานฐานราก', createdAt: '2026-04-20' },
+  { id: 'ITEM-016', pccId: 'PCR-J-004-0001-PCC-001', description: 'ค่าน้ำมันเครื่องจักร', amount: 14000, reason: 'เครื่องจักรหนัก', createdAt: '2026-04-20' },
+  { id: 'ITEM-017', pccId: 'PCR-J-004-0001-PCC-001', description: 'ค่าไฟฟ้าชั่วคราวไซต์', amount: 10000, reason: 'สาธารณูปโภคชั่วคราว', createdAt: '2026-04-20' },
+  { id: 'ITEM-018', pccId: 'PCR-J-004-0001-PCC-002', description: 'แบบหล่อ Formwork เหล็ก', amount: 35000, reason: 'งาน Pile Cap', createdAt: '2026-05-10' },
+  { id: 'ITEM-019', pccId: 'PCR-J-004-0001-PCC-002', description: 'ค่าแรงงานเท Concrete', amount: 22800, reason: 'งานคอนกรีต', createdAt: '2026-05-10' },
+  { id: 'ITEM-020', pccId: 'PCR-J-004-0001-PCC-002', description: 'น้ำยา Curing Compound', amount: 10000, reason: 'บ่มคอนกรีต', createdAt: '2026-05-10' },
+  { id: 'ITEM-021', pccId: 'PCR-J-004-0001-PCC-003', description: 'ค่าขนส่งดิน (excess)', amount: 18500, reason: 'ถมดินส่วนเกิน', createdAt: '2026-06-10' },
+  { id: 'ITEM-022', pccId: 'PCR-J-004-0001-PCC-003', description: 'ค่าเช่า Crane', amount: 29200, reason: 'ยกวัสดุหนัก', createdAt: '2026-06-10' },
 ];
+
+export async function seedMockData(onProgress: (msg: string) => void): Promise<void> {
+  onProgress('⏳ กำลัง seed โครงการ (Projects)…');
+  let batch = writeBatch(db);
+  for (const p of PROJECTS) {
+    batch.set(docRef('projects', p.id), { ...p, updatedAt: serverTimestamp() }, { merge: true });
+  }
+  await batch.commit();
+  onProgress(`✅ Projects: ${PROJECTS.length} รายการ`);
+
+  batch = writeBatch(db);
+  onProgress('⏳ กำลัง seed PCR…');
+  for (const p of PCRS) {
+    batch.set(docRef('pcrs', p.id), { ...p, updatedAt: serverTimestamp() }, { merge: true });
+  }
+  await batch.commit();
+  onProgress(`✅ PCR: ${PCRS.length} รายการ`);
+
+  batch = writeBatch(db);
+  onProgress('⏳ กำลัง seed PCC…');
+  for (const p of PCCS) {
+    batch.set(docRef('pccs', p.id), { ...p, updatedAt: serverTimestamp() }, { merge: true });
+  }
+  await batch.commit();
+  onProgress(`✅ PCC: ${PCCS.length} รายการ`);
+
+  batch = writeBatch(db);
+  onProgress('⏳ กำลัง seed PCC Items…');
+  for (const item of PCC_ITEMS) {
+    batch.set(docRef('pccItems', item.id), { ...item, updatedAt: serverTimestamp() }, { merge: true });
+  }
+  await batch.commit();
+  onProgress(`✅ PCC Items: ${PCC_ITEMS.length} รายการ`);
+
+  onProgress('🎉 Seed สำเร็จทุก collection!');
+}
+
+export const SEED_SUMMARY = {
+  projects: PROJECTS.length,
+  pcrs: PCRS.length,
+  pccs: PCCS.length,
+  pccItems: PCC_ITEMS.length,
+};

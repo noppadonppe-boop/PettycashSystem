@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 
 * {
@@ -6,7 +7,7 @@
 
 body {
   margin: 0;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Sarabun', 'Inter', system-ui, -apple-system, sans-serif;
   background-color: #f1f5f9;
   color: #1e293b;
 }
@@ -16,7 +17,7 @@ body {
   width: 210mm;
   min-height: 297mm;
   padding: 16mm 18mm;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Sarabun', 'Inter', system-ui, -apple-system, sans-serif;
   font-size: 11pt;
   line-height: 1.5;
   color: #1e293b;

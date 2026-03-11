@@ -73,19 +73,27 @@ function ProjectForm({ initial, onSubmit, onClose, title }) {
   );
 }
 
+// Roles that should always see ALL data — not restricted to their own projects
+const BROAD_VIEW_ROLES = ['MasterAdmin', 'MD', 'GM', 'AccountPay', 'ppeAdmin', 'ppeManager', 'ppeLeader', 'Requestors', 'Eng', 'SenEng', 'Arch', 'SenArch'];
+
 export function ProjectsPage() {
-  const { currentUser, hasRole } = useAuth();
+  const { currentUser, hasRole, userProfile } = useAuth();
   const { projects, createProject, updateProject, getPcrsByProject } = useData();
   const [showCreate, setShowCreate] = useState(false);
   const [editProject, setEditProject] = useState(null);
   const navigate = useNavigate();
 
-  const canCreate = hasRole(ROLES.GM, ROLES.MD);
+  // Admins / upper-management see everything; PM/CM see only their own
+  const isBroadView = userProfile?.roles?.some((r) => BROAD_VIEW_ROLES.includes(r)) ?? true;
 
-  const visibleProjects = hasRole(ROLES.CM)
-    ? projects.filter((p) => p.cmId === currentUser.id)
+  const canCreate = hasRole(ROLES.GM, ROLES.MD) || userProfile?.roles?.includes('MasterAdmin');
+
+  const visibleProjects = isBroadView
+    ? projects
+    : hasRole(ROLES.CM)
+    ? projects.filter((p) => p.cmId === currentUser?.id)
     : hasRole(ROLES.PM)
-    ? projects.filter((p) => p.pmId === currentUser.id)
+    ? projects.filter((p) => p.pmId === currentUser?.id)
     : projects;
 
   const getUserName = (id) => USERS.find((u) => u.id === id)?.name || '-';

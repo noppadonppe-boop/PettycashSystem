@@ -9,6 +9,11 @@ import { PcrPage } from './pages/PcrPage';
 import { PccPage } from './pages/PccPage';
 import { PrintPage } from './pages/PrintPage';
 import { HelpPage } from './pages/HelpPage';
+import { LoginPage } from './pages/LoginPage';
+import { RegisterPage } from './pages/RegisterPage';
+import { PendingApprovalPage } from './pages/PendingApprovalPage';
+import { AdminPanelPage } from './pages/AdminPanelPage';
+import { ProtectedRoute } from './components/ProtectedRoute';
 
 function App() {
   return (
@@ -16,18 +21,101 @@ function App() {
       <BrowserRouter>
         <AuthProvider>
           <DataProvider>
-            <MainLayout>
-              <Routes>
-                <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                <Route path="/dashboard" element={<DashboardPage />} />
-                <Route path="/projects" element={<ProjectsPage />} />
-                <Route path="/pcr" element={<PcrPage />} />
-                <Route path="/pcc" element={<PccPage />} />
-                <Route path="/print" element={<PrintPage />} />
-                <Route path="/help" element={<HelpPage />} />
-                <Route path="*" element={<Navigate to="/dashboard" replace />} />
-              </Routes>
-            </MainLayout>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              <Route
+                path="/pending"
+                element={
+                  <ProtectedRoute requireApproved={false}>
+                    <PendingApprovalPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute>
+                    <MainLayout>
+                      <Navigate to="/dashboard" replace />
+                    </MainLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <MainLayout>
+                      <DashboardPage />
+                    </MainLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/projects"
+                element={
+                  <ProtectedRoute>
+                    <MainLayout>
+                      <ProjectsPage />
+                    </MainLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/pcr"
+                element={
+                  <ProtectedRoute>
+                    <MainLayout>
+                      <PcrPage />
+                    </MainLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/pcc"
+                element={
+                  <ProtectedRoute>
+                    <MainLayout>
+                      <PccPage />
+                    </MainLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/print"
+                element={
+                  <ProtectedRoute>
+                    <MainLayout>
+                      <PrintPage />
+                    </MainLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/help"
+                element={
+                  <ProtectedRoute>
+                    <MainLayout>
+                      <HelpPage />
+                    </MainLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute requireRoles={['MasterAdmin', 'ppeAdmin']}>
+                    <MainLayout>
+                      <AdminPanelPage />
+                    </MainLayout>
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
           </DataProvider>
         </AuthProvider>
       </BrowserRouter>

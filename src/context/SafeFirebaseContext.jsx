@@ -1,6 +1,5 @@
-import { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, doc, getDocs, addDoc, updateDoc, deleteDoc, setDoc, getDoc, query, orderBy, where } from 'firebase/firestore';
+import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import { collection, doc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
 import { 
   initialProjects,
   initialPcrs,
@@ -9,19 +8,9 @@ import {
   PCR_STATUS,
   PCC_STATUS
 } from '../data/mockData.js';
+import { db as sharedDb, APP_NAME } from '../firebase/firebase';
 
-// Firebase configuration
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
-};
-
-const ROOT_COLLECTION = 'cmg-petty-cash-management';
+const ROOT_COLLECTION = APP_NAME;
 const ROOT_DOC = 'root';
 
 const DataContext = createContext(null);
@@ -34,94 +23,108 @@ export function DataProvider({ children }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [firebaseReady, setFirebaseReady] = useState(false);
-  const [db, setDb] = useState(null);
+  // Each collection tracks its own "has-seen-firestore-data" flag independently
+  const hasDataRef = useRef({ projects: false, pcrs: false, pccs: false, pccItems: false });
+  const inFlightRef = useRef(new Set());
+  const db = sharedDb;
 
-  // Initialize Firebase
   useEffect(() => {
-    const initFirebase = async () => {
-      try {
-        const app = initializeApp(firebaseConfig);
-        const firestore = getFirestore(app);
-        setDb(firestore);
-        setFirebaseReady(true);
-        console.log('Firebase initialized successfully');
-        
-        // Try to load data from Firebase
-        await loadFirebaseData(firestore);
-      } catch (err) {
-        console.warn('Firebase initialization failed, using mock data:', err);
-        setError('Firebase unavailable - using local data');
-        setFirebaseReady(false);
-      }
-    };
-
-    initFirebase();
+    try {
+      setFirebaseReady(true);
+    } catch (err) {
+      console.warn('Firebase initialization failed, using mock data:', err);
+      setError('Firebase unavailable - using local data');
+      setFirebaseReady(false);
+    }
   }, []);
 
-  // Helper function to get subcollection reference
   const getSubcollection = (subcollectionName) => {
-    if (!db) return null;
     return collection(db, ROOT_COLLECTION, ROOT_DOC, subcollectionName);
   };
 
-  // Load data from Firebase
-  const loadFirebaseData = async (firestore) => {
-    if (!firestore) return;
+  // Sort helper — sort by createdAt desc in JS to avoid needing a Firestore index
+  const sortByCreatedAtDesc = (list) =>
+    [...list].sort((a, b) => {
+      const aVal = a.createdAt ?? '';
+      const bVal = b.createdAt ?? '';
+      if (bVal < aVal) return -1;
+      if (bVal > aVal) return 1;
+      return 0;
+    });
 
-    try {
-      setLoading(true);
-      
-      const loadCollection = async (collectionName) => {
-        try {
-          const collectionRef = collection(firestore, ROOT_COLLECTION, ROOT_DOC, collectionName);
-          const snapshot = await getDocs(collectionRef);
-          return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        } catch (err) {
-          console.warn(`Failed to load ${collectionName}:`, err);
-          return [];
+  // Realtime subscriptions — no orderBy so no composite index required
+  useEffect(() => {
+    if (!firebaseReady) return;
+
+    setLoading(true);
+    const subs = [];
+
+    const subCollection = (name, setter, mockFallback) => {
+      const colRef = collection(db, ROOT_COLLECTION, ROOT_DOC, name);
+      const unsub = onSnapshot(
+        colRef,
+        (snap) => {
+          const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+          if (list.length > 0) {
+            // Firestore has real data → use it (sorted in JS)
+            hasDataRef.current[name] = true;
+            setter(sortByCreatedAtDesc(list));
+          } else if (!hasDataRef.current[name]) {
+            // Firestore is empty AND we've never seen data → keep local mock
+            setter(mockFallback);
+          } else {
+            // Firestore intentionally cleared → show empty
+            setter([]);
+          }
+          setLoading(false);
+        },
+        (err) => {
+          console.warn(`Realtime load failed for ${name}:`, err);
+          setError(`Failed to load ${name} — using local data`);
+          setLoading(false);
         }
-      };
+      );
+      subs.push(unsub);
+    };
 
-      const [firebaseProjects, firebasePcrs, firebasePccs, firebasePccItems] = await Promise.all([
-        loadCollection('projects'),
-        loadCollection('pcrs'),
-        loadCollection('pccs'),
-        loadCollection('pccItems')
-      ]);
+    subCollection('projects', setProjects, initialProjects);
+    subCollection('pcrs', setPcrs, initialPcrs);
+    subCollection('pccs', setPccs, initialPccs);
+    subCollection('pccItems', setPccItems, initialPccItems);
 
-      // Only update if we got data from Firebase
-      if (firebaseProjects.length > 0) setProjects(firebaseProjects);
-      if (firebasePcrs.length > 0) setPcrs(firebasePcrs);
-      if (firebasePccs.length > 0) setPccs(firebasePccs);
-      if (firebasePccItems.length > 0) setPccItems(firebasePccItems);
-
-      console.log('Firebase data loaded successfully');
-    } catch (err) {
-      console.warn('Failed to load Firebase data:', err);
-      setError('Failed to load Firebase data - using local data');
-    } finally {
-      setLoading(false);
-    }
-  };
+    return () => subs.forEach((u) => u());
+  }, [firebaseReady]);
 
   // Save to Firebase helper
   const saveToFirebase = async (collectionName, docId, data) => {
-    if (!firebaseReady || !db) {
+    if (!firebaseReady) {
       console.warn('Firebase not ready, data not saved');
       return false;
     }
 
+    const key = `${collectionName}/${docId}`;
+    if (inFlightRef.current.has(key)) {
+      console.warn('Duplicate save blocked:', key);
+      return false;
+    }
+    inFlightRef.current.add(key);
+
     try {
       const collectionRef = getSubcollection(collectionName);
-      if (!collectionRef) return false;
 
-      await setDoc(doc(collectionRef, docId), data);
+      await setDoc(
+        doc(collectionRef, docId),
+        { ...data, updatedAt: serverTimestamp() },
+        { merge: true }
+      );
       console.log(`Saved ${docId} to ${collectionName}`);
       return true;
     } catch (err) {
       console.error(`Failed to save to ${collectionName}:`, err);
       setError(`Failed to save to Firebase: ${err.message}`);
       return false;
+    } finally {
+      inFlightRef.current.delete(key);
     }
   };
 
@@ -197,7 +200,7 @@ export function DataProvider({ children }) {
       
       return project;
     },
-    [projects, firebaseReady, saveToFirebase]
+    [projects, saveToFirebase]
   );
 
   const updateProject = useCallback(async (id, data) => {
@@ -205,10 +208,7 @@ export function DataProvider({ children }) {
     setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, ...data } : p)));
     
     // Save to Firebase in background
-    const project = projects.find(p => p.id === id);
-    if (project) {
-      await saveToFirebase('projects', id, { ...project, ...data });
-    }
+    await saveToFirebase('projects', id, data);
   }, [projects, saveToFirebase]);
 
   // ─── PCR CRUD & Workflow ──────────────────────────────────────────────────────
@@ -256,10 +256,7 @@ export function DataProvider({ children }) {
     setPcrs((prev) => prev.map((p) => (p.id === id ? { ...p, ...updates } : p)));
     
     // Save to Firebase in background
-    const pcr = pcrs.find(p => p.id === id);
-    if (pcr) {
-      await saveToFirebase('pcrs', id, { ...pcr, ...updates });
-    }
+    await saveToFirebase('pcrs', id, updates);
   }, [pcrs, saveToFirebase]);
 
   const approvePcr = useCallback(
@@ -389,10 +386,7 @@ export function DataProvider({ children }) {
     setPccs((prev) => prev.map((p) => (p.id === id ? { ...p, ...updates } : p)));
     
     // Save to Firebase in background
-    const pcc = pccs.find(p => p.id === id);
-    if (pcc) {
-      await saveToFirebase('pccs', id, { ...pcc, ...updates });
-    }
+    await saveToFirebase('pccs', id, updates);
   }, [pccs, saveToFirebase]);
 
   const pmVerifyPcc = useCallback(
@@ -544,20 +538,7 @@ export function DataProvider({ children }) {
         </div>
       )}
       
-      {firebaseReady && (
-        <div className="fixed bottom-4 left-4 z-50 bg-green-50 border-l-4 border-green-400 p-3 rounded-lg shadow-lg">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <svg className="h-4 w-4 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-2">
-              <p className="text-sm text-green-700 font-medium">Firebase Connected</p>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Intentionally hide Firebase Connected badge (per UI request). */}
       
       <DataContext.Provider
         value={{

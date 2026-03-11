@@ -237,8 +237,10 @@ function PcrRow({ pcr, project, onAction }) {
   );
 }
 
+const BROAD_VIEW_ROLES = ['MasterAdmin', 'MD', 'GM', 'AccountPay', 'ppeAdmin', 'ppeManager', 'ppeLeader', 'Requestors', 'Eng', 'SenEng', 'Arch', 'SenArch'];
+
 export function PcrPage() {
-  const { currentUser, hasRole } = useAuth();
+  const { currentUser, hasRole, userProfile } = useAuth();
   const {
     projects, pcrs, createPcr, approvePcr, rejectPcr, resubmitPcr,
     acknowledgePcr, requestClosePcr, confirmClosurePcr, officiallyClosePcr,
@@ -255,20 +257,26 @@ export function PcrPage() {
   const [projectFilter, setProjectFilter] = useState(filterProject || '');
   const [statusFilter, setStatusFilter] = useState('');
 
-  const canCreate = hasRole(ROLES.PM);
+  const isBroadView = userProfile?.roles?.some((r) => BROAD_VIEW_ROLES.includes(r)) ?? true;
 
-  const pmProjects = hasRole(ROLES.PM)
-    ? projects.filter((p) => p.pmId === currentUser.id)
+  const canCreate = hasRole(ROLES.PM) || userProfile?.roles?.includes('MasterAdmin');
+
+  const pmProjects = isBroadView
+    ? projects
+    : hasRole(ROLES.PM)
+    ? projects.filter((p) => p.pmId === currentUser?.id)
     : projects;
 
   const visiblePcrs = useMemo(() => {
     let list = pcrs;
-    if (hasRole(ROLES.PM)) list = list.filter((p) => projects.find((pr) => pr.id === p.projectId && pr.pmId === currentUser.id));
-    if (hasRole(ROLES.CM)) list = list.filter((p) => projects.find((pr) => pr.id === p.projectId && pr.cmId === currentUser.id));
+    if (!isBroadView) {
+      if (hasRole(ROLES.PM)) list = list.filter((p) => projects.find((pr) => pr.id === p.projectId && pr.pmId === currentUser?.id));
+      if (hasRole(ROLES.CM)) list = list.filter((p) => projects.find((pr) => pr.id === p.projectId && pr.cmId === currentUser?.id));
+    }
     if (projectFilter) list = list.filter((p) => p.projectId === projectFilter);
     if (statusFilter) list = list.filter((p) => p.status === statusFilter);
-    return list.slice().sort((a, b) => b.date.localeCompare(a.date));
-  }, [pcrs, currentUser, projects, projectFilter, statusFilter, hasRole]);
+    return list.slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  }, [pcrs, currentUser, projects, projectFilter, statusFilter, isBroadView]);
 
   const getProject = (id) => projects.find((p) => p.id === id);
 

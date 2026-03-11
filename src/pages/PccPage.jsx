@@ -497,8 +497,10 @@ function PccRow({ pcc, onAction }) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
+const BROAD_VIEW_ROLES = ['MasterAdmin', 'MD', 'GM', 'AccountPay', 'ppeAdmin', 'ppeManager', 'ppeLeader', 'Requestors', 'Eng', 'SenEng', 'Arch', 'SenArch'];
+
 export function PccPage() {
-  const { currentUser, hasRole } = useAuth();
+  const { currentUser, hasRole, userProfile } = useAuth();
   const {
     projects, pccs, pcrs,
     pmVerifyPcc, apVerifyPcc, apRejectPcc, gmApprovePcc, gmRejectPcc,
@@ -511,26 +513,30 @@ export function PccPage() {
   const [projectFilter, setProjectFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
 
-  const canCreate = hasRole(ROLES.SiteAdmin);
+  const isBroadView = userProfile?.roles?.some((r) => BROAD_VIEW_ROLES.includes(r)) ?? true;
+
+  const canCreate = hasRole(ROLES.SiteAdmin) || userProfile?.roles?.includes('MasterAdmin');
 
   const visiblePccs = useMemo(() => {
     let list = pccs;
-    // Role-based filtering
-    if (hasRole(ROLES.PM)) {
-      const myProjectIds = projects.filter((p) => p.pmId === currentUser.id).map((p) => p.id);
-      list = list.filter((p) => myProjectIds.includes(p.projectId));
-    }
-    if (hasRole(ROLES.CM)) {
-      const myProjectIds = projects.filter((p) => p.cmId === currentUser.id).map((p) => p.id);
-      list = list.filter((p) => myProjectIds.includes(p.projectId));
-    }
-    if (hasRole(ROLES.SiteAdmin)) {
-      list = list.filter((p) => p.createdBy === currentUser.id);
+    // Only restrict view for pure site-level roles (CM / PM / SiteAdmin)
+    if (!isBroadView) {
+      if (hasRole(ROLES.PM)) {
+        const myProjectIds = projects.filter((p) => p.pmId === currentUser?.id).map((p) => p.id);
+        list = list.filter((p) => myProjectIds.includes(p.projectId));
+      }
+      if (hasRole(ROLES.CM)) {
+        const myProjectIds = projects.filter((p) => p.cmId === currentUser?.id).map((p) => p.id);
+        list = list.filter((p) => myProjectIds.includes(p.projectId));
+      }
+      if (hasRole(ROLES.SiteAdmin)) {
+        list = list.filter((p) => p.createdBy === currentUser?.id);
+      }
     }
     if (projectFilter) list = list.filter((p) => p.projectId === projectFilter);
     if (statusFilter) list = list.filter((p) => p.status === statusFilter);
-    return list.slice().sort((a, b) => b.date.localeCompare(a.date));
-  }, [pccs, currentUser, projects, projectFilter, statusFilter, hasRole]);
+    return list.slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  }, [pccs, currentUser, projects, projectFilter, statusFilter, isBroadView]);
 
   const allStatuses = [...new Set(pccs.map((p) => p.status))];
 

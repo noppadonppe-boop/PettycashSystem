@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useCallback } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts';
-import { DollarSign, AlertTriangle, TrendingUp, FileText, Receipt, FolderOpen } from 'lucide-react';
+import { DollarSign, AlertTriangle, TrendingUp, FileText, Receipt, FolderOpen, DatabaseZap, X, CheckCircle2, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/SafeFirebaseContext';
 import { USERS, PCR_STATUS, PCC_STATUS } from '../data/mockData';
@@ -11,8 +12,102 @@ import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge';
 import { formatCurrency, formatDate, isOverdue } from '../lib/utils';
 import { cn } from '../lib/utils';
+import { Button } from '../components/ui/Button';
+import { UserManagementPanel } from '../components/admin/UserManagementPanel';
+import { seedMockData, SEED_SUMMARY } from '../scripts/seedMockData';
 
 const CHART_COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+
+function SeedDataModal({ onClose }) {
+  const [logs, setLogs] = useState([]);
+  const [running, setRunning] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const handleSeed = useCallback(async () => {
+    setLogs([]);
+    setRunning(true);
+    setDone(false);
+    try {
+      await seedMockData((msg) => setLogs((prev) => [...prev, msg]));
+      setDone(true);
+    } catch {
+      // error already pushed by seedMockData
+    } finally {
+      setRunning(false);
+    }
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl border border-slate-200 p-6 flex flex-col gap-4">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 transition-colors"
+        >
+          <X size={20} />
+        </button>
+
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center">
+            <DatabaseZap size={20} className="text-indigo-600" />
+          </div>
+          <div>
+            <h3 className="font-bold text-slate-800 text-lg">Seed ข้อมูลตัวอย่าง</h3>
+            <p className="text-xs text-slate-500">เขียนข้อมูล Mock เข้า Firestore เพื่อทดสอบระบบ</p>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs text-slate-600 grid grid-cols-2 gap-y-1 gap-x-4">
+          <span>📁 Projects</span><span className="text-right font-semibold text-slate-800">{SEED_SUMMARY.projects} รายการ</span>
+          <span>📄 PCR</span><span className="text-right font-semibold text-slate-800">{SEED_SUMMARY.pcrs} รายการ</span>
+          <span>🧾 PCC</span><span className="text-right font-semibold text-slate-800">{SEED_SUMMARY.pccs} รายการ</span>
+          <span>📎 PCC Items</span><span className="text-right font-semibold text-slate-800">{SEED_SUMMARY.pccItems} รายการ</span>
+        </div>
+
+        {logs.length > 0 && (
+          <div className="rounded-xl bg-slate-900 text-emerald-300 text-xs font-mono p-3 max-h-44 overflow-y-auto flex flex-col gap-1">
+            {logs.map((l, i) => (
+              <div key={i}>{l}</div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex gap-3 justify-end pt-1">
+          {!done ? (
+            <button
+              onClick={handleSeed}
+              disabled={running}
+              className={cn(
+                'flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all',
+                running
+                  ? 'bg-indigo-400 cursor-not-allowed'
+                  : 'bg-indigo-600 hover:bg-indigo-700 active:scale-95 shadow-sm'
+              )}
+            >
+              {running ? (
+                <><Loader2 size={15} className="animate-spin" /> กำลัง Seed…</>
+              ) : (
+                <><DatabaseZap size={15} /> เริ่ม Seed ข้อมูล</>
+              )}
+            </button>
+          ) : (
+            <button
+              onClick={onClose}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 transition-all active:scale-95 shadow-sm"
+            >
+              <CheckCircle2 size={15} /> เสร็จสิ้น — ปิด
+            </button>
+          )}
+          {!running && !done && (
+            <button onClick={onClose} className="px-4 py-2.5 rounded-xl text-sm text-slate-600 hover:bg-slate-100 transition-colors">
+              ยกเลิก
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function MetricCard({ icon: Icon, label, value, sub, color = 'blue', trend }) {
   const colorMap = {
@@ -57,7 +152,11 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 export function DashboardPage() {
-  const { currentUser } = useAuth();
+  const { currentUser, hasRole } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const view = searchParams.get('view');
+  const [showSeed, setShowSeed] = useState(false);
   const {
     projects, pcrs, pccs,
     getTotalOutstandingCash,
@@ -130,12 +229,43 @@ export function DashboardPage() {
     return Object.entries(statusCounts).map(([name, value]) => ({ name, value }));
   }, [pcrs]);
 
+  if (view === 'users') {
+    if (!hasRole('MasterAdmin')) {
+      navigate('/dashboard', { replace: true });
+      return null;
+    }
+    return (
+      <div className="flex flex-col gap-5">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h2 className="text-xl font-bold text-slate-800">จัดการ User <span className="text-base font-medium text-slate-500">/ User Management</span></h2>
+            <p className="text-sm text-slate-500 mt-0.5">จัดการสถานะการอนุมัติ และกำหนดสิทธิ์ผู้ใช้งาน</p>
+          </div>
+          <Button variant="secondary" onClick={() => navigate('/dashboard')}>Back</Button>
+        </div>
+        <UserManagementPanel />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
+      {showSeed && <SeedDataModal onClose={() => setShowSeed(false)} />}
+
       {/* Page header */}
-      <div>
-        <h2 className="text-xl font-bold text-slate-800">Executive Dashboard <span className="text-base font-medium text-slate-500">/ แดชบอร์ดผู้บริหาร</span></h2>
-        <p className="text-sm text-slate-500 mt-0.5">Welcome back, {currentUser?.name} — here's your financial overview. / ยินดีต้อนรับ {currentUser?.name} — ภาพรวมการเงินของคุณ</p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h2 className="text-xl font-bold text-slate-800">Executive Dashboard <span className="text-base font-medium text-slate-500">/ แดชบอร์ดผู้บริหาร</span></h2>
+          <p className="text-sm text-slate-500 mt-0.5">Welcome back, {currentUser?.name} — here's your financial overview. / ยินดีต้อนรับ {currentUser?.name} — ภาพรวมการเงินของคุณ</p>
+        </div>
+        {hasRole('MasterAdmin') && (
+          <button
+            onClick={() => setShowSeed(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-dashed border-indigo-300 bg-indigo-50 text-indigo-700 text-xs font-semibold hover:bg-indigo-100 transition-colors"
+          >
+            <DatabaseZap size={14} /> Seed ข้อมูลตัวอย่าง
+          </button>
+        )}
       </div>
 
       {/* Metric cards */}
