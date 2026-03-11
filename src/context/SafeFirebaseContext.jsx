@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { collection, doc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { 
   initialProjects,
   initialPcrs,
@@ -8,7 +9,7 @@ import {
   PCR_STATUS,
   PCC_STATUS
 } from '../data/mockData.js';
-import { db as sharedDb, APP_NAME } from '../firebase/firebase';
+import { db as sharedDb, auth, APP_NAME } from '../firebase/firebase';
 
 const ROOT_COLLECTION = APP_NAME;
 const ROOT_DOC = 'root';
@@ -22,20 +23,28 @@ export function DataProvider({ children }) {
   const [pccItems, setPccItems] = useState(initialPccItems);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [firebaseReady, setFirebaseReady] = useState(false);
+  // authUid: the current Firebase UID (null = not signed in)
+  const [authUid, setAuthUid] = useState(null);
   // Each collection tracks its own "has-seen-firestore-data" flag independently
   const hasDataRef = useRef({ projects: false, pcrs: false, pccs: false, pccItems: false });
   const inFlightRef = useRef(new Set());
   const db = sharedDb;
 
+  // Track auth state — subscriptions only run when authenticated
   useEffect(() => {
-    try {
-      setFirebaseReady(true);
-    } catch (err) {
-      console.warn('Firebase initialization failed, using mock data:', err);
-      setError('Firebase unavailable - using local data');
-      setFirebaseReady(false);
-    }
+    const unsub = onAuthStateChanged(auth, (user) => {
+      setAuthUid(user ? user.uid : null);
+      if (!user) {
+        // Signed out — restore local mock data
+        setProjects(initialProjects);
+        setPcrs(initialPcrs);
+        setPccs(initialPccs);
+        setPccItems(initialPccItems);
+        setError(null);
+        hasDataRef.current = { projects: false, pcrs: false, pccs: false, pccItems: false };
+      }
+    });
+    return () => unsub();
   }, []);
 
   const getSubcollection = (subcollectionName) => {
@@ -52,11 +61,13 @@ export function DataProvider({ children }) {
       return 0;
     });
 
-  // Realtime subscriptions — no orderBy so no composite index required
+  // Realtime subscriptions — starts ONLY after user is authenticated
+  // Using authUid as dependency ensures subscriptions restart on login/logout
   useEffect(() => {
-    if (!firebaseReady) return;
+    if (!authUid) return; // wait for authentication before subscribing
 
     setLoading(true);
+    setError(null);
     const subs = [];
 
     const subCollection = (name, setter, mockFallback) => {
@@ -93,12 +104,12 @@ export function DataProvider({ children }) {
     subCollection('pccItems', setPccItems, initialPccItems);
 
     return () => subs.forEach((u) => u());
-  }, [firebaseReady]);
+  }, [authUid]); // restart subscriptions whenever auth changes
 
   // Save to Firebase helper
   const saveToFirebase = async (collectionName, docId, data) => {
-    if (!firebaseReady) {
-      console.warn('Firebase not ready, data not saved');
+    if (!authUid) {
+      console.warn('Not authenticated, data not saved to Firebase');
       return false;
     }
 
@@ -521,24 +532,14 @@ export function DataProvider({ children }) {
   return (
     <>
       {error && (
-        <div className="fixed top-4 right-4 z-50 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg shadow-lg max-w-sm">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-yellow-700">
-                <strong>Firebase Status</strong><br/>
-                {error}
-              </p>
-            </div>
-          </div>
+        <div className="fixed top-4 right-4 z-50 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg shadow-lg max-w-sm flex items-start gap-3">
+          <svg className="h-5 w-5 text-yellow-500 shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+          </svg>
+          <p className="text-sm text-yellow-800 flex-1">{error}</p>
+          <button onClick={() => setError(null)} className="text-yellow-400 hover:text-yellow-700 text-lg leading-none ml-1">×</button>
         </div>
       )}
-      
-      {/* Intentionally hide Firebase Connected badge (per UI request). */}
       
       <DataContext.Provider
         value={{
@@ -548,7 +549,7 @@ export function DataProvider({ children }) {
           pccItems,
           loading,
           error,
-          firebaseReady,
+          firebaseReady: !!authUid,
           // Getters
           getPcrsByProject,
           getPccsByPcr,
