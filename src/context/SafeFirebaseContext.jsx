@@ -1,14 +1,10 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
-import { collection, doc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
+import { collection, doc, onSnapshot, serverTimestamp, setDoc, deleteDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { 
-  initialProjects,
-  initialPcrs,
-  initialPccs,
-  initialPccItems,
   PCR_STATUS,
   PCC_STATUS
-} from '../data/mockData.js';
+} from '../data/constants.js';
 import { db as sharedDb, auth, APP_NAME } from '../firebase/firebase';
 
 const ROOT_COLLECTION = APP_NAME;
@@ -17,10 +13,10 @@ const ROOT_DOC = 'root';
 const DataContext = createContext(null);
 
 export function DataProvider({ children }) {
-  const [projects, setProjects] = useState(initialProjects);
-  const [pcrs, setPcrs] = useState(initialPcrs);
-  const [pccs, setPccs] = useState(initialPccs);
-  const [pccItems, setPccItems] = useState(initialPccItems);
+  const [projects, setProjects] = useState([]);
+  const [pcrs, setPcrs] = useState([]);
+  const [pccs, setPccs] = useState([]);
+  const [pccItems, setPccItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   // authUid: the current Firebase UID (null = not signed in)
@@ -35,11 +31,11 @@ export function DataProvider({ children }) {
     const unsub = onAuthStateChanged(auth, (user) => {
       setAuthUid(user ? user.uid : null);
       if (!user) {
-        // Signed out — restore local mock data
-        setProjects(initialProjects);
-        setPcrs(initialPcrs);
-        setPccs(initialPccs);
-        setPccItems(initialPccItems);
+        // Signed out — clear all data
+        setProjects([]);
+        setPcrs([]);
+        setPccs([]);
+        setPccItems([]);
         setError(null);
         hasDataRef.current = { projects: false, pcrs: false, pccs: false, pccItems: false };
       }
@@ -80,28 +76,25 @@ export function DataProvider({ children }) {
             // Firestore has real data → use it (sorted in JS)
             hasDataRef.current[name] = true;
             setter(sortByCreatedAtDesc(list));
-          } else if (!hasDataRef.current[name]) {
-            // Firestore is empty AND we've never seen data → keep local mock
-            setter(mockFallback);
           } else {
-            // Firestore intentionally cleared → show empty
+            // Firestore is empty → show empty
             setter([]);
           }
           setLoading(false);
         },
         (err) => {
           console.warn(`Realtime load failed for ${name}:`, err);
-          setError(`Failed to load ${name} — using local data`);
+          setError(`Failed to load ${name} — ${err.message}`);
           setLoading(false);
         }
       );
       subs.push(unsub);
     };
 
-    subCollection('projects', setProjects, initialProjects);
-    subCollection('pcrs', setPcrs, initialPcrs);
-    subCollection('pccs', setPccs, initialPccs);
-    subCollection('pccItems', setPccItems, initialPccItems);
+    subCollection('projects', setProjects);
+    subCollection('pcrs', setPcrs);
+    subCollection('pccs', setPccs);
+    subCollection('pccItems', setPccItems);
 
     return () => subs.forEach((u) => u());
   }, [authUid]); // restart subscriptions whenever auth changes
@@ -221,6 +214,15 @@ export function DataProvider({ children }) {
     // Save to Firebase in background
     await saveToFirebase('projects', id, data);
   }, [projects, saveToFirebase]);
+
+  const deleteProject = useCallback(async (id) => {
+    // Update local state immediately
+    setProjects((prev) => prev.filter((p) => p.id !== id));
+    
+    // Delete from Firebase
+    const ref = doc(db, `${ROOT_COLLECTION}/${ROOT_DOC}/projects/${id}`);
+    await deleteDoc(ref);
+  }, [projects, db]);
 
   // ─── PCR CRUD & Workflow ──────────────────────────────────────────────────────
 
@@ -562,6 +564,7 @@ export function DataProvider({ children }) {
           // Project actions
           createProject,
           updateProject,
+          deleteProject,
           // PCR actions
           createPcr,
           approvePcr,

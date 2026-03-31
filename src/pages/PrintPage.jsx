@@ -1,12 +1,27 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Printer, FileText, Receipt, ChevronDown, ChevronUp, Building2 } from 'lucide-react';
 import { useData } from '../context/SafeFirebaseContext';
 import { useAuth } from '../context/AuthContext';
-import { USERS, PCR_STATUS, PCC_STATUS } from '../data/mockData';
+import { PCR_STATUS, PCC_STATUS } from '../data/constants.js';
 import { formatCurrency, formatDate, cn } from '../lib/utils';
+import { onSnapshot, query, orderBy } from 'firebase/firestore';
+import { usersColRef } from '../auth/firestorePaths';
 
-function getUserName(id) {
-  return USERS.find((u) => u.id === id)?.name ?? id ?? '—';
+function useUsers() {
+  const [users, setUsers] = useState([]);
+  useEffect(() => {
+    const q = query(usersColRef(), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, (snap) => {
+      setUsers(snap.docs.map((d) => d.data()));
+    }, () => setUsers([]));
+    return () => unsub();
+  }, []);
+  return users;
+}
+
+function getUserName(users, id) {
+  const u = users.find((u) => u.uid === id);
+  return u ? [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email : id ?? '—';
 }
 
 function StatusBadge({ status }) {
@@ -36,6 +51,7 @@ function StatusBadge({ status }) {
 
 function PcrDocument({ pcr, project }) {
   const { getPcrRemainingBalance, getPcrApprovedSpend, getPccsByPcr, getItemsByPcc } = useData();
+  const users = useUsers();
   const remaining = getPcrRemainingBalance(pcr.id);
   const approvedSpend = getPcrApprovedSpend(pcr.id);
   const utilizationPct = pcr.amount > 0 ? Math.round((approvedSpend / pcr.amount) * 100) : 0;
@@ -87,8 +103,8 @@ function PcrDocument({ pcr, project }) {
             <InfoRow label="Project ID / รหัสโครงการ" value={project?.id ?? '—'} mono />
             <InfoRow label="Project Name / ชื่อโครงการ" value={project?.name ?? '—'} />
             <InfoRow label="Location / สถานที่" value={project?.location ?? '—'} />
-            <InfoRow label="PM" value={getUserName(project?.pmId)} />
-            <InfoRow label="CM" value={getUserName(project?.cmId)} />
+            <InfoRow label="PM" value={getUserName(users, project?.pmId)} />
+            <InfoRow label="CM" value={getUserName(users, project?.cmId)} />
           </div>
         </div>
         <div className="border border-slate-200 rounded-xl overflow-hidden">
@@ -98,9 +114,9 @@ function PcrDocument({ pcr, project }) {
           <div className="p-4 flex flex-col gap-2.5">
             <InfoRow label="Created Date / วันที่สร้าง" value={formatDate(pcr.date)} />
             <InfoRow label="Due Date / วันครบกำหนด" value={formatDate(pcr.dueDate)} />
-            <InfoRow label="Created By / สร้างโดย" value={getUserName(pcr.createdBy)} />
-            {pcr.approvedBy && <InfoRow label="Approved By / อนุมัติโดย" value={`${getUserName(pcr.approvedBy)} (${formatDate(pcr.approvedAt)})`} />}
-            {pcr.acknowledgedBy && <InfoRow label="Acknowledged By / รับทราบโดย" value={`${getUserName(pcr.acknowledgedBy)} (${formatDate(pcr.acknowledgedAt)})`} />}
+            <InfoRow label="Created By / สร้างโดย" value={getUserName(users, pcr.createdBy)} />
+            {pcr.approvedBy && <InfoRow label="Approved By / อนุมัติโดย" value={`${getUserName(users, pcr.approvedBy)} (${formatDate(pcr.approvedAt)})`} />}
+            {pcr.acknowledgedBy && <InfoRow label="Acknowledged By / รับทราบโดย" value={`${getUserName(users, pcr.acknowledgedBy)} (${formatDate(pcr.acknowledgedAt)})`} />}
           </div>
         </div>
       </div>
@@ -216,6 +232,7 @@ function PcrDocument({ pcr, project }) {
 
 function PccDocument({ pcc }) {
   const { getItemsByPcc, getPcrById, getProjectById } = useData();
+  const users = useUsers();
   const items = getItemsByPcc(pcc.id);
   const pcr = getPcrById(pcc.pcrId);
   const project = pcr ? getProjectById(pcr.projectId) : null;
@@ -275,10 +292,10 @@ function PccDocument({ pcc }) {
           </div>
           <div className="p-4 flex flex-col gap-2.5">
             <InfoRow label="Submitted Date / วันที่ยื่น" value={formatDate(pcc.date)} />
-            <InfoRow label="Submitted By / ยื่นโดย" value={getUserName(pcc.createdBy)} />
-            {pcc.verifiedByPM && <InfoRow label="PM Verified / PM ตรวจสอบ" value={`${getUserName(pcc.verifiedByPM)} (${formatDate(pcc.verifiedByPMAt)})`} />}
-            {pcc.verifiedByAP && <InfoRow label="AP Verified / AP ตรวจสอบ" value={`${getUserName(pcc.verifiedByAP)} (${formatDate(pcc.verifiedByAPAt)})`} />}
-            {pcc.approvedByGM && <InfoRow label="GM Approved / GM อนุมัติ" value={`${getUserName(pcc.approvedByGM)} (${formatDate(pcc.approvedByGMAt)})`} />}
+            <InfoRow label="Submitted By / ยื่นโดย" value={getUserName(users, pcc.createdBy)} />
+            {pcc.verifiedByPM && <InfoRow label="PM Verified / PM ตรวจสอบ" value={`${getUserName(users, pcc.verifiedByPM)} (${formatDate(pcc.verifiedByPMAt)})`} />}
+            {pcc.verifiedByAP && <InfoRow label="AP Verified / AP ตรวจสอบ" value={`${getUserName(users, pcc.verifiedByAP)} (${formatDate(pcc.verifiedByAPAt)})`} />}
+            {pcc.approvedByGM && <InfoRow label="GM Approved / GM อนุมัติ" value={`${getUserName(users, pcc.approvedByGM)} (${formatDate(pcc.approvedByGMAt)})`} />}
           </div>
         </div>
       </div>
@@ -338,14 +355,14 @@ function PccDocument({ pcc }) {
           <WorkflowStep
             step="1" role="SiteAdmin" roleTh="ผู้ดูแลไซต์"
             action="Created / สร้าง"
-            by={getUserName(pcc.createdBy)}
+            by={getUserName(users, pcc.createdBy)}
             date={formatDate(pcc.date)}
             done
           />
           <WorkflowStep
             step="2" role="PM" roleTh="ผู้จัดการโครงการ"
             action="Verify / ตรวจสอบ"
-            by={pcc.verifiedByPM ? getUserName(pcc.verifiedByPM) : null}
+            by={pcc.verifiedByPM ? getUserName(users, pcc.verifiedByPM) : null}
             date={pcc.verifiedByPMAt ? formatDate(pcc.verifiedByPMAt) : null}
             done={!!pcc.verifiedByPM}
             pending={pcc.status === PCC_STATUS.PENDING_PM}
@@ -353,7 +370,7 @@ function PccDocument({ pcc }) {
           <WorkflowStep
             step="3" role="AccountPay" roleTh="บัญชีเจ้าหนี้"
             action="Verify / ตรวจสอบ"
-            by={pcc.verifiedByAP ? getUserName(pcc.verifiedByAP) : null}
+            by={pcc.verifiedByAP ? getUserName(users, pcc.verifiedByAP) : null}
             date={pcc.verifiedByAPAt ? formatDate(pcc.verifiedByAPAt) : null}
             done={!!pcc.verifiedByAP}
             pending={pcc.status === PCC_STATUS.PENDING_AP}
@@ -362,7 +379,7 @@ function PccDocument({ pcc }) {
           <WorkflowStep
             step="4" role="GM / MD" roleTh="ผู้จัดการใหญ่"
             action="Approve / อนุมัติ"
-            by={pcc.approvedByGM ? getUserName(pcc.approvedByGM) : null}
+            by={pcc.approvedByGM ? getUserName(users, pcc.approvedByGM) : null}
             date={pcc.approvedByGMAt ? formatDate(pcc.approvedByGMAt) : null}
             done={!!pcc.approvedByGM}
             pending={pcc.status === PCC_STATUS.PENDING_GM}

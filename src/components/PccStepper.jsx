@@ -1,5 +1,5 @@
 import { CheckCircle, Circle, Clock } from 'lucide-react';
-import { PCC_STATUS } from '../data/mockData';
+import { PCC_STATUS } from '../data/constants.js';
 import { cn } from '../lib/utils';
 
 const steps = [

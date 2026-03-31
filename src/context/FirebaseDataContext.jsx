@@ -15,7 +15,7 @@ import {
   deletePccItem,
   initializeRootDocument
 } from '../services/firebaseService.js';
-import { PCR_STATUS, PCC_STATUS } from '../data/mockData.js';
+import { PCR_STATUS, PCC_STATUS } from '../data/constants.js';
 
 const DataContext = createContext(null);
 

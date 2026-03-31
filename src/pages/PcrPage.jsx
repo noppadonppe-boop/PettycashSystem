@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Plus, CheckCircle, XCircle, DollarSign, FileText,
@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/SafeFirebaseContext';
-import { ROLES, USERS, PCR_STATUS } from '../data/mockData';
+import { PCR_STATUS } from '../data/constants.js';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -14,6 +14,8 @@ import { Modal } from '../components/ui/Modal';
 import { Input, Textarea, Select } from '../components/ui/Input';
 import { formatDate, formatCurrency, isOverdue } from '../lib/utils';
 import { cn } from '../lib/utils';
+import { onSnapshot, query, orderBy } from 'firebase/firestore';
+import { usersColRef } from '../auth/firestorePaths';
 
 const emptyPcrForm = { projectId: '', amount: '', dueDate: '', reason: '' };
 
@@ -115,16 +117,33 @@ function ConfirmReceiptModalContent({ onClose, onConfirm }) {
   );
 }
 
+function useUsers() {
+  const [users, setUsers] = useState([]);
+  useEffect(() => {
+    const q = query(usersColRef(), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, (snap) => {
+      setUsers(snap.docs.map((d) => d.data()));
+    }, () => setUsers([]));
+    return () => unsub();
+  }, []);
+  return users;
+}
+
+function getUserName(users, id) {
+  const u = users.find((u) => u.uid === id);
+  return u ? [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email : '-';
+}
+
 function PcrRow({ pcr, project, onAction }) {
   const { currentUser, hasRole } = useAuth();
   const { getPcrRemainingBalance, getPcrApprovedSpend } = useData();
   const [expanded, setExpanded] = useState(false);
+  const users = useUsers();
 
   const remaining = getPcrRemainingBalance(pcr.id);
   const approvedSpend = getPcrApprovedSpend(pcr.id);
   const utilizationPct = pcr.amount > 0 ? Math.round((approvedSpend / pcr.amount) * 100) : 0;
   const overdue = isOverdue(pcr.dueDate) && pcr.status === PCR_STATUS.ACKNOWLEDGED;
-  const getUserName = (id) => USERS.find((u) => u.id === id)?.name || '-';
 
   return (
     <div className={cn('border rounded-xl overflow-hidden transition-all', overdue ? 'border-amber-300 bg-amber-50/30' : 'border-slate-200 bg-white')}>
@@ -219,10 +238,10 @@ function PcrRow({ pcr, project, onAction }) {
               </div>
 
               <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
-                {pcr.approvedBy && <div className="bg-white rounded px-2 py-1.5 border border-slate-100"><span className="text-slate-400">Approved by / อนุมัติโดย: </span>{getUserName(pcr.approvedBy)} ({formatDate(pcr.approvedAt)})</div>}
-                {pcr.acknowledgedBy && <div className="bg-white rounded px-2 py-1.5 border border-slate-100"><span className="text-slate-400">Acknowledged / รับทราบโดย: </span>{getUserName(pcr.acknowledgedBy)} ({formatDate(pcr.acknowledgedAt)})</div>}
-                {pcr.closureConfirmedBy && <div className="bg-white rounded px-2 py-1.5 border border-slate-100"><span className="text-slate-400">Closure confirmed / ยืนยันการปิดโดย: </span>{getUserName(pcr.closureConfirmedBy)}</div>}
-                {pcr.closedBy && <div className="bg-white rounded px-2 py-1.5 border border-slate-100"><span className="text-slate-400">Closed by / ปิดโดย: </span>{getUserName(pcr.closedBy)} ({formatDate(pcr.closedAt)})</div>}
+                {pcr.approvedBy && <div className="bg-white rounded px-2 py-1.5 border border-slate-100"><span className="text-slate-400">Approved by / อนุมัติโดย: </span>{getUserName(users, pcr.approvedBy)} ({formatDate(pcr.approvedAt)})</div>}
+                {pcr.acknowledgedBy && <div className="bg-white rounded px-2 py-1.5 border border-slate-100"><span className="text-slate-400">Acknowledged / รับทราบโดย: </span>{getUserName(users, pcr.acknowledgedBy)} ({formatDate(pcr.acknowledgedAt)})</div>}
+                {pcr.closureConfirmedBy && <div className="bg-white rounded px-2 py-1.5 border border-slate-100"><span className="text-slate-400">Closure confirmed / ยืนยันการปิดโดย: </span>{getUserName(users, pcr.closureConfirmedBy)}</div>}
+                {pcr.closedBy && <div className="bg-white rounded px-2 py-1.5 border border-slate-100"><span className="text-slate-400">Closed by / ปิดโดย: </span>{getUserName(users, pcr.closedBy)} ({formatDate(pcr.closedAt)})</div>}
               </div>
             </div>
           </div>
@@ -259,19 +278,19 @@ export function PcrPage() {
 
   const isBroadView = userProfile?.roles?.some((r) => BROAD_VIEW_ROLES.includes(r)) ?? true;
 
-  const canCreate = hasRole(ROLES.PM) || userProfile?.roles?.includes('MasterAdmin');
+  const canCreate = hasRole('PM') || userProfile?.roles?.includes('MasterAdmin');
 
   const pmProjects = isBroadView
     ? projects
-    : hasRole(ROLES.PM)
+    : hasRole('PM')
     ? projects.filter((p) => p.pmId === currentUser?.id)
     : projects;
 
   const visiblePcrs = useMemo(() => {
     let list = pcrs;
     if (!isBroadView) {
-      if (hasRole(ROLES.PM)) list = list.filter((p) => projects.find((pr) => pr.id === p.projectId && pr.pmId === currentUser?.id));
-      if (hasRole(ROLES.CM)) list = list.filter((p) => projects.find((pr) => pr.id === p.projectId && pr.cmId === currentUser?.id));
+      if (hasRole('PM')) list = list.filter((p) => projects.find((pr) => pr.id === p.projectId && pr.pmId === currentUser?.id));
+      if (hasRole('CM')) list = list.filter((p) => projects.find((pr) => pr.id === p.projectId && pr.cmId === currentUser?.id));
     }
     if (projectFilter) list = list.filter((p) => p.projectId === projectFilter);
     if (statusFilter) list = list.filter((p) => p.status === statusFilter);
@@ -295,7 +314,7 @@ export function PcrPage() {
     const approvedSpend = getPcrApprovedSpend(pcr.id);
     const amountToReturn = pcr.amount - approvedSpend;
 
-    if (hasRole(ROLES.GM, ROLES.MD) && pcr.status === PCR_STATUS.PENDING_GM) {
+    if (hasRole('GM', 'MD') && pcr.status === PCR_STATUS.PENDING_GM) {
       actions.push(
         <Button key="approve" variant="success" size="sm" onClick={() => approvePcr(pcr.id, currentUser.id)}>
           <CheckCircle size={14} /> Approve PCR / อนุมัติ PCR
@@ -306,7 +325,7 @@ export function PcrPage() {
       );
     }
 
-    if (hasRole(ROLES.AccountPay) && pcr.status === PCR_STATUS.APPROVED) {
+    if (hasRole('AccountPay') && pcr.status === PCR_STATUS.APPROVED) {
       actions.push(
         <Button key="ack" variant="primary" size="sm" onClick={() => acknowledgePcr(pcr.id, currentUser.id)}>
           <DollarSign size={14} /> Acknowledge (Fund Transferred) / รับทราบ (โอนเงินแล้ว)
@@ -314,7 +333,7 @@ export function PcrPage() {
       );
     }
 
-    if (hasRole(ROLES.PM) && pcr.status === PCR_STATUS.GM_REJECTED) {
+    if (hasRole('PM') && pcr.status === PCR_STATUS.GM_REJECTED) {
       actions.push(
         <Button key="edit" variant="warning" size="sm" onClick={() => setEditPcr(pcr)}>
           <RefreshCw size={14} /> Edit & Resubmit / แก้ไขและส่งใหม่
@@ -322,7 +341,7 @@ export function PcrPage() {
       );
     }
 
-    if (hasRole(ROLES.PM) && pcr.status === PCR_STATUS.ACKNOWLEDGED) {
+    if (hasRole('PM') && pcr.status === PCR_STATUS.ACKNOWLEDGED) {
       actions.push(
         <Button key="close" variant="secondary" size="sm" onClick={() => setClosureTarget({ pcr, amountToReturn })}>
           <Lock size={14} /> Request Closure / ขอปิด PCR
@@ -330,7 +349,7 @@ export function PcrPage() {
       );
     }
 
-    if (hasRole(ROLES.AccountPay) && pcr.status === PCR_STATUS.CLOSURE_REQUESTED) {
+    if (hasRole('AccountPay') && pcr.status === PCR_STATUS.CLOSURE_REQUESTED) {
       actions.push(
         <Button key="confirmreceipt" variant="success" size="sm" onClick={() => setConfirmReceiptTarget(pcr)}>
           <CheckCircle size={14} /> Confirm Receipt of Funds / ยืนยันรับเงินคืน
@@ -338,7 +357,7 @@ export function PcrPage() {
       );
     }
 
-    if (hasRole(ROLES.GM, ROLES.MD) && pcr.status === PCR_STATUS.CLOSURE_CONFIRMED) {
+    if (hasRole('GM', 'MD') && pcr.status === PCR_STATUS.CLOSURE_CONFIRMED) {
       actions.push(
         <Button key="officialclose" variant="primary" size="sm" onClick={() => officiallyClosePcr(pcr.id, currentUser.id)}>
           <Lock size={14} /> Officially Close PCR / ปิด PCR อย่างเป็นทางการ

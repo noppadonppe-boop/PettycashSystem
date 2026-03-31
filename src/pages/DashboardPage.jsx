@@ -7,14 +7,13 @@ import {
 import { DollarSign, AlertTriangle, TrendingUp, FileText, Receipt, FolderOpen, DatabaseZap, X, CheckCircle2, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/SafeFirebaseContext';
-import { USERS, PCR_STATUS, PCC_STATUS } from '../data/mockData';
+import { PCR_STATUS, PCC_STATUS } from '../data/constants.js';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { formatCurrency, formatDate, isOverdue } from '../lib/utils';
 import { cn } from '../lib/utils';
 import { Button } from '../components/ui/Button';
 import { UserManagementPanel } from '../components/admin/UserManagementPanel';
-import { seedMockData, SEED_SUMMARY } from '../scripts/seedMockData';
 
 const CHART_COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
@@ -57,11 +56,14 @@ function SeedDataModal({ onClose }) {
           </div>
         </div>
 
-        <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs text-slate-600 grid grid-cols-2 gap-y-1 gap-x-4">
-          <span>📁 Projects</span><span className="text-right font-semibold text-slate-800">{SEED_SUMMARY.projects} รายการ</span>
-          <span>📄 PCR</span><span className="text-right font-semibold text-slate-800">{SEED_SUMMARY.pcrs} รายการ</span>
-          <span>🧾 PCC</span><span className="text-right font-semibold text-slate-800">{SEED_SUMMARY.pccs} รายการ</span>
-          <span>📎 PCC Items</span><span className="text-right font-semibold text-slate-800">{SEED_SUMMARY.pccItems} รายการ</span>
+        <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs text-slate-600">
+          <p className="font-medium text-slate-700 mb-2">ข้อมูลที่จะถูกสร้าง:</p>
+          <div className="grid grid-cols-2 gap-y-1 gap-x-4">
+            <span>📁 Projects</span><span className="text-right font-semibold text-slate-800">ตามต้องการ</span>
+            <span>📄 PCR</span><span className="text-right font-semibold text-slate-800">ตามต้องการ</span>
+            <span>🧾 PCC</span><span className="text-right font-semibold text-slate-800">ตามต้องการ</span>
+            <span>📎 PCC Items</span><span className="text-right font-semibold text-slate-800">ตามต้องการ</span>
+          </div>
         </div>
 
         {logs.length > 0 && (
@@ -326,7 +328,6 @@ export function DashboardPage() {
                   {agingAlerts.map((pcr) => {
                     const proj = projects.find((p) => p.id === pcr.projectId);
                     const remaining = getPcrRemainingBalance(pcr.id);
-                    const pm = USERS.find((u) => u.id === proj?.pmId);
                     return (
                       <tr key={pcr.id} className="border-b border-amber-100 last:border-0">
                         <td className="py-2 pr-4 font-mono text-xs text-amber-800 font-semibold">{pcr.id}</td>
@@ -334,7 +335,7 @@ export function DashboardPage() {
                         <td className="py-2 pr-4 font-medium">{formatCurrency(pcr.amount)}</td>
                         <td className="py-2 pr-4 text-rose-600 font-semibold">{formatDate(pcr.dueDate)}</td>
                         <td className="py-2 pr-4 font-medium text-slate-700">{formatCurrency(remaining)}</td>
-                        <td className="py-2 text-slate-600">{pm?.name || '-'}</td>
+                        <td className="py-2 text-slate-600">{proj?.pmId || '-'}</td>
                       </tr>
                     );
                   })}

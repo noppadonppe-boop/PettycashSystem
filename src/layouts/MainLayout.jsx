@@ -7,7 +7,6 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/SafeFirebaseContext';
 import { cn } from '../lib/utils';
-import { ROLES } from '../data/mockData';
 import { Modal } from '../components/ui/Modal';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
@@ -21,42 +20,42 @@ const NAV_ITEMS = [
     labelTh: 'แดชบอร์ด',
     icon: LayoutDashboard,
     path: '/dashboard',
-    roles: [ROLES.MD, ROLES.GM, ROLES.AccountPay],
+    roles: ['MD', 'GM', 'AccountPay'],
   },
   {
     label: 'Projects',
     labelTh: 'โครงการ',
     icon: FolderOpen,
     path: '/projects',
-    roles: [ROLES.MD, ROLES.GM, ROLES.PM, ROLES.CM, ROLES.AccountPay],
+    roles: ['MD', 'GM', 'PM', 'CM', 'AccountPay'],
   },
   {
     label: 'PCR Management',
     labelTh: 'จัดการ PCR',
     icon: FileText,
     path: '/pcr',
-    roles: [ROLES.MD, ROLES.GM, ROLES.PM, ROLES.AccountPay],
+    roles: ['MD', 'GM', 'PM', 'AccountPay'],
   },
   {
     label: 'PCC Management',
     labelTh: 'จัดการ PCC',
     icon: Receipt,
     path: '/pcc',
-    roles: [ROLES.MD, ROLES.GM, ROLES.PM, ROLES.AccountPay, ROLES.SiteAdmin],
+    roles: ['MD', 'GM', 'PM', 'AccountPay', 'SiteAdmin'],
   },
   {
     label: 'Print Documents',
     labelTh: 'พิมพ์เอกสาร',
     icon: Printer,
     path: '/print',
-    roles: [ROLES.MD, ROLES.GM, ROLES.PM, ROLES.AccountPay, ROLES.SiteAdmin, ROLES.CM],
+    roles: ['MD', 'GM', 'PM', 'AccountPay', 'SiteAdmin', 'CM'],
   },
   {
     label: 'System Guide',
     labelTh: 'คู่มือการใช้งาน',
     icon: HelpCircle,
     path: '/help',
-    roles: [ROLES.MD, ROLES.GM, ROLES.PM, ROLES.AccountPay, ROLES.SiteAdmin, ROLES.CM],
+    roles: ['MD', 'GM', 'PM', 'AccountPay', 'SiteAdmin', 'CM'],
   },
 ];
 
@@ -95,18 +94,18 @@ export function MainLayout({ children }) {
   // Notification count
   const pendingActions = (() => {
     let count = 0;
-    if (currentUser?.role === ROLES.GM || currentUser?.role === ROLES.MD) {
+    if (currentUser?.role === 'GM' || currentUser?.role === 'MD') {
       count += pcrs.filter((p) => p.status === 'Pending GM').length;
       count += pccs.filter((p) => p.status === 'Pending GM').length;
     }
-    if (currentUser?.role === ROLES.PM) {
+    if (currentUser?.role === 'PM') {
       count += pccs.filter((p) => p.status === 'Pending PM').length;
     }
-    if (currentUser?.role === ROLES.AccountPay) {
+    if (currentUser?.role === 'AccountPay') {
       count += pcrs.filter((p) => p.status === 'Approved').length;
       count += pccs.filter((p) => p.status === 'Pending AP').length;
     }
-    if (currentUser?.role === ROLES.SiteAdmin) {
+    if (currentUser?.role === 'SiteAdmin') {
       count += pccs.filter((p) => p.status === 'AP Rejected' && p.createdBy === currentUser.id).length;
     }
     return count;

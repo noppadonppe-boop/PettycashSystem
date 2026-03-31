@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Plus, CheckCircle, XCircle, Receipt, Trash2,
   ChevronDown, ChevronUp, AlertCircle, RefreshCw,
@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/SafeFirebaseContext';
-import { ROLES, USERS, PCC_STATUS, PCR_STATUS } from '../data/mockData';
+import { PCC_STATUS, PCR_STATUS } from '../data/constants.js';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -15,6 +15,8 @@ import { Input, Textarea, Select } from '../components/ui/Input';
 import { PccStepper } from '../components/PccStepper';
 import { formatDate, formatCurrency } from '../lib/utils';
 import { cn } from '../lib/utils';
+import { onSnapshot, query, orderBy } from 'firebase/firestore';
+import { usersColRef } from '../auth/firestorePaths';
 
 // ─── Attachment helpers ───────────────────────────────────────────────────────
 
@@ -363,13 +365,31 @@ function RejectModal({ open, onClose, onConfirm, title }) {
 
 // ─── PCC Row ──────────────────────────────────────────────────────────────────
 
+// Hook to load users from Firebase
+function useUsers() {
+  const [users, setUsers] = useState([]);
+  useEffect(() => {
+    const q = query(usersColRef(), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, (snap) => {
+      setUsers(snap.docs.map((d) => d.data()));
+    }, () => setUsers([]));
+    return () => unsub();
+  }, []);
+  return users;
+}
+
+function getUserName(users, id) {
+  const u = users.find((u) => u.uid === id);
+  return u ? [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email : '-';
+}
+
 function PccRow({ pcc, onAction }) {
   const { getItemsByPcc, getPcrById, getProjectById } = useData();
   const [expanded, setExpanded] = useState(false);
+  const users = useUsers();
   const items = getItemsByPcc(pcc.id);
   const pcr = getPcrById(pcc.pcrId);
   const project = getProjectById(pcc.projectId);
-  const getUserName = (id) => USERS.find((u) => u.id === id)?.name || '-';
 
   return (
     <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
@@ -384,7 +404,7 @@ function PccRow({ pcc, onAction }) {
             <Badge status={pcc.status} />
           </div>
           <p className="text-xs text-slate-500 mt-0.5 truncate">
-            {project?.name} • PCR: {pcc.pcrId} • {formatDate(pcc.date)} • By: {getUserName(pcc.createdBy)}
+            {project?.name} • PCR: {pcc.pcrId} • {formatDate(pcc.date)} • By: {getUserName(users, pcc.createdBy)}
           </p>
         </div>
         <div className="text-right shrink-0">
@@ -479,9 +499,9 @@ function PccRow({ pcc, onAction }) {
 
             {/* Audit trail */}
             <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
-              {pcc.verifiedByPM && <div className="bg-white rounded px-2 py-1.5 border border-slate-100"><span className="text-slate-400">PM verified / PM ตรวจสอบ: </span>{getUserName(pcc.verifiedByPM)} ({formatDate(pcc.verifiedByPMAt)})</div>}
-              {pcc.verifiedByAP && <div className="bg-white rounded px-2 py-1.5 border border-slate-100"><span className="text-slate-400">AP verified / AP ตรวจสอบ: </span>{getUserName(pcc.verifiedByAP)} ({formatDate(pcc.verifiedByAPAt)})</div>}
-              {pcc.approvedByGM && <div className="bg-white rounded px-2 py-1.5 border border-slate-100"><span className="text-slate-400">GM approved / GM อนุมัติ: </span>{getUserName(pcc.approvedByGM)} ({formatDate(pcc.approvedByGMAt)})</div>}
+              {pcc.verifiedByPM && <div className="bg-white rounded px-2 py-1.5 border border-slate-100"><span className="text-slate-400">PM verified / PM ตรวจสอบ: </span>{getUserName(users, pcc.verifiedByPM)} ({formatDate(pcc.verifiedByPMAt)})</div>}
+              {pcc.verifiedByAP && <div className="bg-white rounded px-2 py-1.5 border border-slate-100"><span className="text-slate-400">AP verified / AP ตรวจสอบ: </span>{getUserName(users, pcc.verifiedByAP)} ({formatDate(pcc.verifiedByAPAt)})</div>}
+              {pcc.approvedByGM && <div className="bg-white rounded px-2 py-1.5 border border-slate-100"><span className="text-slate-400">GM approved / GM อนุมัติ: </span>{getUserName(users, pcc.approvedByGM)} ({formatDate(pcc.approvedByGMAt)})</div>}
             </div>
 
             {/* Action buttons */}
@@ -515,21 +535,21 @@ export function PccPage() {
 
   const isBroadView = userProfile?.roles?.some((r) => BROAD_VIEW_ROLES.includes(r)) ?? true;
 
-  const canCreate = hasRole(ROLES.SiteAdmin) || userProfile?.roles?.includes('MasterAdmin');
+  const canCreate = hasRole('SiteAdmin') || userProfile?.roles?.includes('MasterAdmin');
 
   const visiblePccs = useMemo(() => {
     let list = pccs;
     // Only restrict view for pure site-level roles (CM / PM / SiteAdmin)
     if (!isBroadView) {
-      if (hasRole(ROLES.PM)) {
+      if (hasRole('PM')) {
         const myProjectIds = projects.filter((p) => p.pmId === currentUser?.id).map((p) => p.id);
         list = list.filter((p) => myProjectIds.includes(p.projectId));
       }
-      if (hasRole(ROLES.CM)) {
+      if (hasRole('CM')) {
         const myProjectIds = projects.filter((p) => p.cmId === currentUser?.id).map((p) => p.id);
         list = list.filter((p) => myProjectIds.includes(p.projectId));
       }
-      if (hasRole(ROLES.SiteAdmin)) {
+      if (hasRole('SiteAdmin')) {
         list = list.filter((p) => p.createdBy === currentUser?.id);
       }
     }
@@ -548,7 +568,7 @@ export function PccPage() {
   const renderActions = (pcc) => {
     const actions = [];
 
-    if (hasRole(ROLES.PM) && pcc.status === PCC_STATUS.PENDING_PM) {
+    if (hasRole('PM') && pcc.status === PCC_STATUS.PENDING_PM) {
       actions.push(
         <Button key="verify" variant="success" size="sm" onClick={() => pmVerifyPcc(pcc.id, currentUser.id)}>
           <CheckCircle size={14} /> Verify & Pass to AP / ตรวจสอบและส่งต่อ AP
@@ -556,7 +576,7 @@ export function PccPage() {
       );
     }
 
-    if (hasRole(ROLES.AccountPay) && pcc.status === PCC_STATUS.PENDING_AP) {
+    if (hasRole('AccountPay') && pcc.status === PCC_STATUS.PENDING_AP) {
       actions.push(
         <Button key="apverify" variant="success" size="sm" onClick={() => apVerifyPcc(pcc.id, currentUser.id)}>
           <CheckCircle size={14} /> Verify & Pass to GM / ตรวจสอบและส่งต่อ GM
@@ -567,7 +587,7 @@ export function PccPage() {
       );
     }
 
-    if (hasRole(ROLES.GM, ROLES.MD) && pcc.status === PCC_STATUS.PENDING_GM) {
+    if (hasRole('GM', 'MD') && pcc.status === PCC_STATUS.PENDING_GM) {
       actions.push(
         <Button key="gmapprove" variant="success" size="sm" onClick={() => gmApprovePcc(pcc.id, currentUser.id)}>
           <CheckCircle size={14} /> Approve Payment / อนุมัติการจ่ายเงิน
@@ -578,7 +598,7 @@ export function PccPage() {
       );
     }
 
-    if (hasRole(ROLES.SiteAdmin) && (pcc.status === PCC_STATUS.AP_REJECTED || pcc.status === PCC_STATUS.GM_REJECTED)) {
+    if (hasRole('SiteAdmin') && (pcc.status === PCC_STATUS.AP_REJECTED || pcc.status === PCC_STATUS.GM_REJECTED)) {
       actions.push(
         <span key="info" className="text-xs text-slate-500 italic flex items-center gap-1">
           <RefreshCw size={12} /> This PCC was rejected. Please create a new corrected PCC. / PCC นี้ถูกปฏิเสธ กรุณาสร้าง PCC ใหม่ที่แก้ไขแล้ว

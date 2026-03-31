@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, doc, getDocs, addDoc, updateDoc, deleteDoc, setDoc, getDoc, query, orderBy, where } from 'firebase/firestore';
-import { PCR_STATUS, PCC_STATUS } from '../data/mockData.js';
+import { PCR_STATUS, PCC_STATUS } from '../data/constants.js';
 
 // Firebase configuration
 const firebaseConfig = {

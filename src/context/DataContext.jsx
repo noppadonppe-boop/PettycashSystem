@@ -1,20 +1,16 @@
 import { createContext, useContext, useState, useCallback } from 'react';
 import {
-  initialProjects,
-  initialPcrs,
-  initialPccs,
-  initialPccItems,
   PCR_STATUS,
   PCC_STATUS,
-} from '../data/mockData';
+} from '../data/constants.js';
 
 const DataContext = createContext(null);
 
 export function DataProvider({ children }) {
-  const [projects, setProjects] = useState(initialProjects);
-  const [pcrs, setPcrs] = useState(initialPcrs);
-  const [pccs, setPccs] = useState(initialPccs);
-  const [pccItems, setPccItems] = useState(initialPccItems);
+  const [projects, setProjects] = useState([]);
+  const [pcrs, setPcrs] = useState([]);
+  const [pccs, setPccs] = useState([]);
+  const [pccItems, setPccItems] = useState([]);
 
   // ─── Derived helpers ─────────────────────────────────────────────────────────
 

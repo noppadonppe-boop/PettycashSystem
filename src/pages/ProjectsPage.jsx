@@ -1,14 +1,15 @@
-import { useState } from 'react';
-import { Plus, MapPin, Calendar, User, Eye, Edit2, FolderOpen } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, MapPin, Calendar, User, Eye, Edit2, FolderOpen, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/SafeFirebaseContext';
-import { ROLES, USERS } from '../data/mockData';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { Input, Textarea, Select } from '../components/ui/Input';
 import { formatDate } from '../lib/utils';
 import { useNavigate } from 'react-router-dom';
+import { onSnapshot, query, orderBy } from 'firebase/firestore';
+import { usersColRef } from '../auth/firestorePaths';
 
 const emptyForm = {
   name: '', location: '', pmId: '', cmId: '', startDate: '', finishDate: '', note: '',
@@ -17,15 +18,29 @@ const emptyForm = {
 function ProjectForm({ initial, onSubmit, onClose, title }) {
   const [form, setForm] = useState(initial || emptyForm);
   const [errors, setErrors] = useState({});
-  const pms = USERS.filter((u) => u.role === ROLES.PM);
-  const cms = USERS.filter((u) => u.role === ROLES.CM);
+  const [users, setUsers] = useState([]);
+
+  // Load users from Firebase
+  useEffect(() => {
+    const q = query(usersColRef(), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, (snap) => {
+      const list = snap.docs.map((d) => d.data());
+      setUsers(list);
+    }, () => {
+      setUsers([]);
+    });
+    return () => unsub();
+  }, []);
+
+  // Filter users by role
+  const pms = users.filter((u) => u.roles?.includes('PM'));
+  const cms = users.filter((u) => u.roles?.includes('CM'));
 
   const validate = () => {
     const e = {};
     if (!form.name.trim()) e.name = 'Project name is required';
     if (!form.location.trim()) e.location = 'Location is required';
-    if (!form.pmId) e.pmId = 'PM assignment is required';
-    if (!form.cmId) e.cmId = 'CM assignment is required';
+    // PM and CM are now optional - removed required validation
     if (!form.startDate) e.startDate = 'Start date is required';
     if (!form.finishDate) e.finishDate = 'Finish date is required';
     return e;
@@ -49,13 +64,13 @@ function ProjectForm({ initial, onSubmit, onClose, title }) {
         <div className="col-span-2">
           <Input label="Location / สถานที่" id="location" required value={form.location} onChange={set('location')} error={errors.location} placeholder="City, District / เมือง, อำเภอ" />
         </div>
-        <Select label="Assign Project Manager (PM) / มอบหมาย PM" id="pmId" required value={form.pmId} onChange={set('pmId')} error={errors.pmId}>
+        <Select label="Assign Project Manager (PM) / มอบหมาย PM (ไม่บังคับ)" id="pmId" value={form.pmId} onChange={set('pmId')} error={errors.pmId}>
           <option value="">-- Select PM --</option>
-          {pms.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+          {pms.map((u) => <option key={u.uid} value={u.uid}>{[u.firstName, u.lastName].filter(Boolean).join(' ') || u.email}</option>)}
         </Select>
-        <Select label="Assign Construction Manager (CM) / มอบหมาย CM" id="cmId" required value={form.cmId} onChange={set('cmId')} error={errors.cmId}>
+        <Select label="Assign Construction Manager (CM) / มอบหมาย CM (ไม่บังคับ)" id="cmId" value={form.cmId} onChange={set('cmId')} error={errors.cmId}>
           <option value="">-- Select CM --</option>
-          {cms.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+          {cms.map((u) => <option key={u.uid} value={u.uid}>{[u.firstName, u.lastName].filter(Boolean).join(' ') || u.email}</option>)}
         </Select>
         <Input label="Start Date / วันเริ่มต้น" id="startDate" type="date" required value={form.startDate} onChange={set('startDate')} error={errors.startDate} />
         <Input label="Finish Date / วันสิ้นสุด" id="finishDate" type="date" required value={form.finishDate} onChange={set('finishDate')} error={errors.finishDate} />
@@ -78,25 +93,45 @@ const BROAD_VIEW_ROLES = ['MasterAdmin', 'MD', 'GM', 'AccountPay', 'ppeAdmin', '
 
 export function ProjectsPage() {
   const { currentUser, hasRole, userProfile } = useAuth();
-  const { projects, createProject, updateProject, getPcrsByProject } = useData();
+  const { projects, createProject, updateProject, deleteProject, getPcrsByProject } = useData();
   const [showCreate, setShowCreate] = useState(false);
   const [editProject, setEditProject] = useState(null);
+  const [users, setUsers] = useState([]);
   const navigate = useNavigate();
+
+  // Load users for displaying PM/CM names
+  useEffect(() => {
+    const q = query(usersColRef(), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, (snap) => {
+      const list = snap.docs.map((d) => d.data());
+      setUsers(list);
+    }, () => {
+      setUsers([]);
+    });
+    return () => unsub();
+  }, []);
 
   // Admins / upper-management see everything; PM/CM see only their own
   const isBroadView = userProfile?.roles?.some((r) => BROAD_VIEW_ROLES.includes(r)) ?? true;
 
-  const canCreate = hasRole(ROLES.GM, ROLES.MD) || userProfile?.roles?.includes('MasterAdmin');
+  const canCreate = hasRole('GM', 'MD') || userProfile?.roles?.includes('MasterAdmin');
+  const canDelete = hasRole('GM', 'MD') || userProfile?.roles?.includes('MasterAdmin');
 
   const visibleProjects = isBroadView
     ? projects
-    : hasRole(ROLES.CM)
+    : (userProfile?.assignedProjects?.length > 0)
+    ? projects.filter((p) => userProfile.assignedProjects.includes(p.id))
+    : hasRole('CM')
     ? projects.filter((p) => p.cmId === currentUser?.id)
-    : hasRole(ROLES.PM)
+    : hasRole('PM')
     ? projects.filter((p) => p.pmId === currentUser?.id)
     : projects;
 
-  const getUserName = (id) => USERS.find((u) => u.id === id)?.name || '-';
+  const getUserName = (id) => {
+    if (!id) return '-';
+    const u = users.find((user) => user.uid === id);
+    return u ? [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email : '-';
+  };
 
   const handleCreate = (form) => {
     createProject(form, currentUser.id);
@@ -106,6 +141,14 @@ export function ProjectsPage() {
   const handleEdit = (form) => {
     updateProject(editProject.id, form);
     setEditProject(null);
+  };
+
+  const handleDelete = async (projectId, projectName) => {
+    const confirmed = window.confirm(
+      `คุณแน่ใจหรือไม่ที่จะลบโครงการ "${projectName}" (${projectId})?\n\nการลบโครงการจะลบข้อมูลทั้งหมดที่เกี่ยวข้องและไม่สามารถเรียกคืนได้`
+    );
+    if (!confirmed) return;
+    await deleteProject(projectId);
   };
 
   return (
@@ -187,6 +230,16 @@ export function ProjectsPage() {
                         onClick={() => setEditProject(proj)}
                       >
                         <Edit2 size={13} />
+                      </Button>
+                    )}
+                    {canDelete && (
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        onClick={() => handleDelete(proj.id, proj.name)}
+                        title="Delete Project / ลบโครงการ"
+                      >
+                        <Trash2 size={13} />
                       </Button>
                     )}
                   </div>
