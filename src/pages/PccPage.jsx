@@ -207,14 +207,26 @@ function LineItemEditor({ items, onChange }) {
 
 // ─── Create PCC Form ──────────────────────────────────────────────────────────
 
+// Returns true only when the selected project is exactly PRJ-2026-J-009
+function isSpecialProject(projectId) {
+  return projectId === 'PRJ-2026-J-009';
+}
+
 function CreatePccForm({ onSubmit, onClose }) {
   const { currentUser } = useAuth();
   const { projects, pcrs, getPcrRemainingBalance } = useData();
 
   const [projectId, setProjectId] = useState('');
   const [pcrId, setPcrId] = useState('');
+  const [relatedProjectId, setRelatedProjectId] = useState('');
   const [items, setItems] = useState([{ description: '', amount: '', reason: '', attachments: [] }]);
   const [errors, setErrors] = useState({});
+
+  // True when selected project is in the PRJ-????-J-001..009 range
+  const needsRelatedProject = isSpecialProject(projectId);
+
+  // Last 5 projects (sorted by createdAt desc, already sorted by context)
+  const last5Projects = useMemo(() => projects.slice(0, 5), [projects]);
 
   const activePcrs = useMemo(
     () => pcrs.filter((p) => p.projectId === projectId && p.status === PCR_STATUS.ACKNOWLEDGED),
@@ -230,6 +242,7 @@ function CreatePccForm({ onSubmit, onClose }) {
     const e = {};
     if (!projectId) e.projectId = 'Select a project';
     if (!pcrId) e.pcrId = 'Select an active PCR';
+    if (needsRelatedProject && !relatedProjectId) e.relatedProjectId = 'กรุณาเลือกโครงการที่ใช้งาน';
     if (items.length === 0) e.items = 'Add at least one item';
     if (items.some((i) => !i.description.trim() || !i.amount || Number(i.amount) <= 0)) {
       e.items = 'All items must have a description and valid amount';
@@ -246,6 +259,7 @@ function CreatePccForm({ onSubmit, onClose }) {
       {
         pcrId,
         projectId,
+        relatedProjectId: needsRelatedProject ? relatedProjectId : '',
         requester: currentUser.id,
         date: new Date().toISOString().slice(0, 10),
       },
@@ -260,7 +274,7 @@ function CreatePccForm({ onSubmit, onClose }) {
           label="Project / โครงการ"
           required
           value={projectId}
-          onChange={(e) => { setProjectId(e.target.value); setPcrId(''); }}
+          onChange={(e) => { setProjectId(e.target.value); setPcrId(''); setRelatedProjectId(''); }}
           error={errors.projectId}
         >
           <option value="">-- Select Project --</option>
@@ -283,6 +297,28 @@ function CreatePccForm({ onSubmit, onClose }) {
           ))}
         </Select>
       </div>
+
+      {/* Conditional: ใช้กับโครงการ — shows only for PRJ-????-J-001..009 */}
+      {needsRelatedProject && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            <p className="text-sm font-semibold text-amber-800">ข้อมูลเพิ่มเติมสำหรับโครงการนี้</p>
+          </div>
+          <Select
+            label="ใช้กับโครงการ / Applied to Project"
+            required
+            value={relatedProjectId}
+            onChange={(e) => setRelatedProjectId(e.target.value)}
+            error={errors.relatedProjectId}
+          >
+            <option value="">-- เลือกโครงการ --</option>
+            {last5Projects.map((p) => (
+              <option key={p.id} value={p.id}>{p.name.slice(-5)}</option>
+            ))}
+          </Select>
+        </div>
+      )}
 
       {/* PCR Balance indicator */}
       {selectedPcr && (
@@ -384,7 +420,7 @@ function getUserName(users, id) {
 }
 
 function PccRow({ pcc, onAction }) {
-  const { getItemsByPcc, getPcrById, getProjectById } = useData();
+  const { projects, getItemsByPcc, getPcrById, getProjectById } = useData();
   const [expanded, setExpanded] = useState(false);
   const users = useUsers();
   const items = getItemsByPcc(pcc.id);
@@ -405,6 +441,11 @@ function PccRow({ pcc, onAction }) {
           </div>
           <p className="text-xs text-slate-500 mt-0.5 truncate">
             {project?.name} • PCR: {pcc.pcrId} • {formatDate(pcc.date)} • By: {getUserName(users, pcc.createdBy)}
+            {pcc.relatedProjectId && (
+              <span className="ml-1 inline-flex items-center gap-1 bg-amber-100 text-amber-700 border border-amber-200 rounded px-1.5 text-[10px] font-semibold">
+                ใช้กับ: {pcc.relatedProjectId}
+              </span>
+            )}
           </p>
         </div>
         <div className="text-right shrink-0">
@@ -496,6 +537,21 @@ function PccRow({ pcc, onAction }) {
                 </table>
               </div>
             </div>
+
+            {/* Related project info */}
+            {pcc.relatedProjectId && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center gap-2">
+                <span className="inline-flex w-2 h-2 rounded-full bg-amber-400 shrink-0" />
+                <div className="text-sm">
+                  <span className="text-amber-700 font-semibold">ใช้กับโครงการ / Applied to Project: </span>
+                  <span className="font-mono text-amber-800 font-bold">{pcc.relatedProjectId}</span>
+                  {(() => {
+                    const rp = projects.find((p) => p.id === pcc.relatedProjectId);
+                    return rp ? <span className="text-amber-700"> – {rp.name}</span> : null;
+                  })()}
+                </div>
+              </div>
+            )}
 
             {/* Audit trail */}
             <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
