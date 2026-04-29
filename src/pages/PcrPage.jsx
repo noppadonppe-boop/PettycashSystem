@@ -45,7 +45,7 @@ function PcrForm({ initial, projects, onSubmit, onClose, title }) {
     <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4">
       <Select label="Project" id="projectId" required value={form.projectId} onChange={set('projectId')} error={errors.projectId} disabled={!!initial}>
         <option value="">-- Select Project --</option>
-        {projects.map((p) => <option key={p.id} value={p.id}>{p.id} – {p.name}</option>)}
+        {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
       </Select>
       <div className="grid grid-cols-2 gap-4">
         <Input label="Amount (THB) / จำนวนเงิน (บาท)" id="amount" type="number" required min="1" step="0.01" value={form.amount} onChange={set('amount')} error={errors.amount} placeholder="0.00" />
@@ -146,39 +146,39 @@ function PcrRow({ pcr, project, onAction }) {
   const overdue = isOverdue(pcr.dueDate) && pcr.status === PCR_STATUS.ACKNOWLEDGED;
 
   return (
-    <div className={cn('border rounded-xl overflow-hidden transition-all', overdue ? 'border-amber-300 bg-amber-50/30' : 'border-slate-200 bg-white')}>
+    <div className={cn('border rounded-lg overflow-hidden transition-all', overdue ? 'border-amber-300 bg-amber-50/30' : 'border-slate-200 bg-white')}>
       {/* Row header */}
       <div
-        className="flex items-center gap-4 px-5 py-4 cursor-pointer hover:bg-slate-50 transition-colors"
+        className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-slate-50 transition-colors"
         onClick={() => setExpanded(!expanded)}
       >
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-mono font-semibold text-blue-700">{pcr.id}</span>
+          <div className="flex items-center gap-2 min-w-0 whitespace-nowrap">
+            <span className="text-[13px] font-mono font-semibold text-blue-700">{pcr.id}</span>
             <Badge status={pcr.status} />
             {overdue && (
               <span className="flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-100 border border-amber-200 rounded-full px-2 py-0.5">
                 <AlertTriangle size={10} /> OVERDUE
               </span>
             )}
+            <p className="text-[11px] text-slate-500 truncate whitespace-nowrap leading-tight min-w-0">
+              {project?.name} • Created {formatDate(pcr.date)} • Due {formatDate(pcr.dueDate)}
+            </p>
           </div>
-          <p className="text-xs text-slate-500 mt-0.5 truncate">
-            {project?.name} • Created {formatDate(pcr.date)} • Due {formatDate(pcr.dueDate)}
-          </p>
         </div>
 
-        <div className="hidden lg:flex items-center gap-6 text-right shrink-0">
+        <div className="hidden lg:flex items-center gap-4 text-right shrink-0">
           <div>
-            <p className="text-xs text-slate-400">Amount / จำนวน</p>
-            <p className="text-sm font-semibold text-slate-800">{formatCurrency(pcr.amount)}</p>
+            <p className="text-[10px] text-slate-400">Amount / จำนวน</p>
+            <p className="text-[13px] font-semibold text-slate-800">{formatCurrency(pcr.amount)}</p>
           </div>
           <div>
-            <p className="text-xs text-slate-400">Claimed / เบิกจ่าย</p>
-            <p className="text-sm font-semibold text-slate-800">{formatCurrency(approvedSpend)}</p>
+            <p className="text-[10px] text-slate-400">Claimed / เบิกจ่าย</p>
+            <p className="text-[13px] font-semibold text-slate-800">{formatCurrency(approvedSpend)}</p>
           </div>
           <div>
-            <p className="text-xs text-slate-400">Remaining / คงเหลือ</p>
-            <p className={cn('text-sm font-semibold', remaining < 0 ? 'text-rose-600' : 'text-emerald-600')}>{formatCurrency(remaining)}</p>
+            <p className="text-[10px] text-slate-400">Remaining / คงเหลือ</p>
+            <p className={cn('text-[13px] font-semibold', remaining < 0 ? 'text-rose-600' : 'text-emerald-600')}>{formatCurrency(remaining)}</p>
           </div>
         </div>
 
@@ -392,26 +392,27 @@ export function PcrPage() {
   const allStatuses = [...new Set(pcrs.map((p) => p.status))];
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-3">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h2 className="text-xl font-bold text-slate-800">PCR Management <span className="text-base font-medium text-slate-500">/ จัดการ PCR</span></h2>
-          <p className="text-sm text-slate-500 mt-0.5">Petty Cash Requests / คำขอเงินสดย่อย – {visiblePcrs.length} รายการ</p>
+      <div className="flex items-center justify-between gap-3 min-w-0">
+        <div className="min-w-0">
+          <h2 className="text-lg font-bold text-slate-800 truncate whitespace-nowrap">
+            PCR Management <span className="text-sm font-medium text-slate-500">/ จัดการ PCR • Petty Cash Requests / คำขอเงินสดย่อย – {visiblePcrs.length} รายการ</span>
+          </h2>
         </div>
         {canCreate && (
-          <Button onClick={() => setShowCreate(true)}>
-            <Plus size={16} /> New PCR / สร้าง PCR ใหม่
+          <Button onClick={() => setShowCreate(true)} className="h-9 px-3 shrink-0">
+            <Plus size={15} /> New PCR / สร้าง PCR ใหม่
           </Button>
         )}
       </div>
 
       {/* Filters */}
-      <div className="flex gap-3 flex-wrap">
+      <div className="flex gap-2 flex-nowrap overflow-x-auto pb-0.5">
         <select
           value={projectFilter}
           onChange={(e) => setProjectFilter(e.target.value)}
-          className="px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="px-3 py-1.5 h-9 rounded-lg border border-slate-200 text-sm bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-[260px]"
         >
           <option value="">All Projects / ทุกโครงการ</option>
           {projects.map((p) => <option key={p.id} value={p.id}>{p.id} – {p.name}</option>)}
@@ -419,7 +420,7 @@ export function PcrPage() {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="px-3 py-1.5 h-9 rounded-lg border border-slate-200 text-sm bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-[190px]"
         >
           <option value="">All Statuses / ทุกสถานะ</option>
           {allStatuses.map((s) => <option key={s} value={s}>{s}</option>)}

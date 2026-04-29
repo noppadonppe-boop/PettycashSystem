@@ -183,8 +183,7 @@ export function ProjectsPage() {
               <Card key={proj.id} className="hover:shadow-md transition-shadow">
                 <CardHeader className="flex flex-row items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-mono text-blue-600 font-medium">{proj.id}</p>
-                    <h3 className="text-sm font-semibold text-slate-800 mt-0.5 truncate">{proj.name}</h3>
+                    <h3 className="text-sm font-semibold text-slate-800 truncate">{proj.name}</h3>
                   </div>
                   <span className="shrink-0 text-xs bg-blue-50 text-blue-700 border border-blue-100 rounded-full px-2 py-0.5 font-medium">
                     {activePcrs} Active PCR{activePcrs !== 1 ? 's' : ''}

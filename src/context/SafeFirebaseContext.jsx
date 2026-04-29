@@ -429,14 +429,43 @@ export function DataProvider({ children }) {
   );
 
   const apVerifyPcc = useCallback(
-    (id, userId) =>
-      updatePccStatus(id, {
+    async (id, userId, poLinksByItemId = {}) => {
+      const itemRows = pccItems.filter((i) => i.pccId === id);
+      const nextItems = itemRows.map((item) => ({
+        ...item,
+        poLink: (poLinksByItemId[item.id] ?? item.poLink ?? '').trim(),
+      }));
+      const allValid = nextItems.length > 0 && nextItems.every((item) => {
+        if (!item.poLink) return false;
+        try {
+          const parsedUrl = new URL(item.poLink);
+          return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
+        } catch {
+          return false;
+        }
+      });
+      if (!allValid) {
+        setError('PO Link is required for every line item and must be a valid http(s) URL before verify to GM.');
+        return false;
+      }
+
+      setPccItems((prev) => {
+        const byId = new Map(nextItems.map((item) => [item.id, item]));
+        return prev.map((item) => byId.get(item.id) || item);
+      });
+      for (const item of nextItems) {
+        await saveToFirebase('pccItems', item.id, { poLink: item.poLink });
+      }
+
+      await updatePccStatus(id, {
         status: PCC_STATUS.PENDING_GM,
         verifiedByAP: userId,
         verifiedByAPAt: new Date().toISOString().slice(0, 10),
         rejectNote: '',
-      }),
-    [updatePccStatus]
+      });
+      return true;
+    },
+    [updatePccStatus, pccItems, saveToFirebase]
   );
 
   const apRejectPcc = useCallback(

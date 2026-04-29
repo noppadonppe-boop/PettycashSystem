@@ -32,15 +32,15 @@ function getStepState(stepIdx, status) {
 
 export function PccStepper({ status }) {
   return (
-    <div className="flex items-center gap-0 w-full">
+    <div className="flex items-center gap-0 w-full py-0.5">
       {steps.map((step, idx) => {
         const state = getStepState(idx, status);
         return (
           <div key={step.label} className="flex items-center flex-1">
-            <div className="flex flex-col items-center gap-1 min-w-[80px]">
+            <div className="flex flex-col items-center gap-0 min-w-[68px]">
               <div
                 className={cn(
-                  'w-9 h-9 rounded-full flex items-center justify-center border-2 transition-all',
+                  'w-7 h-7 rounded-full flex items-center justify-center border-2 transition-all',
                   state === 'complete' && 'bg-emerald-500 border-emerald-500 text-white',
                   state === 'active' && 'bg-blue-600 border-blue-600 text-white',
                   state === 'rejected' && 'bg-rose-500 border-rose-500 text-white',
@@ -48,18 +48,18 @@ export function PccStepper({ status }) {
                 )}
               >
                 {state === 'complete' ? (
-                  <CheckCircle size={18} />
+                  <CheckCircle size={14} />
                 ) : state === 'active' ? (
-                  <Clock size={18} />
+                  <Clock size={14} />
                 ) : state === 'rejected' ? (
                   <span className="text-xs font-bold">✕</span>
                 ) : (
-                  <Circle size={18} />
+                  <Circle size={14} />
                 )}
               </div>
               <div className="text-center">
                 <p className={cn(
-                  'text-xs font-semibold',
+                  'text-[11px] font-semibold leading-none',
                   state === 'complete' && 'text-emerald-700',
                   state === 'active' && 'text-blue-700',
                   state === 'rejected' && 'text-rose-700',
@@ -67,7 +67,7 @@ export function PccStepper({ status }) {
                 )}>
                   {step.label}
                 </p>
-                <p className="text-[10px] text-slate-400">{step.sublabel}</p>
+                <p className="text-[9px] text-slate-400 leading-none mt-0.5">{step.sublabel}</p>
               </div>
             </div>
             {idx < steps.length - 1 && (

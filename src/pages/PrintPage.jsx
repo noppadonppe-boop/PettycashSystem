@@ -585,26 +585,21 @@ export function PrintPage() {
 
   return (
     <>
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-3">
         {/* Header */}
-        <div>
-          <h2 className="text-xl font-bold text-slate-800">
-            Print Documents{' '}
-            <span className="text-base font-medium text-slate-500">/ พิมพ์เอกสาร</span>
+        <div className="min-w-0">
+          <h2 className="text-lg font-bold text-slate-800 truncate whitespace-nowrap">
+            Print Documents <span className="text-sm font-medium text-slate-500">/ พิมพ์เอกสาร • เลือก PCR/PCC เพื่อดูตัวอย่างและพิมพ์เอกสาร</span>
           </h2>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Select a PCR or PCC to preview and print as a professional A4 PDF document. /
-            เลือก PCR หรือ PCC เพื่อดูตัวอย่างและพิมพ์เป็น PDF รูปแบบ A4
-          </p>
         </div>
 
         {/* Tabs + Filter */}
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex bg-slate-100 rounded-xl p-1 gap-1">
+        <div className="flex items-center justify-between gap-2 flex-nowrap overflow-x-auto pb-0.5">
+          <div className="flex bg-slate-100 rounded-lg p-1 gap-1 shrink-0">
             <button
               onClick={() => setTab('pcr')}
               className={cn(
-                'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer',
+                'flex items-center gap-1.5 px-3 py-1.5 h-9 rounded-lg text-sm font-semibold transition-all cursor-pointer whitespace-nowrap',
                 tab === 'pcr'
                   ? 'bg-white text-blue-700 shadow-sm'
                   : 'text-slate-500 hover:text-slate-800'
@@ -619,7 +614,7 @@ export function PrintPage() {
             <button
               onClick={() => setTab('pcc')}
               className={cn(
-                'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer',
+                'flex items-center gap-1.5 px-3 py-1.5 h-9 rounded-lg text-sm font-semibold transition-all cursor-pointer whitespace-nowrap',
                 tab === 'pcc'
                   ? 'bg-white text-emerald-700 shadow-sm'
                   : 'text-slate-500 hover:text-slate-800'
@@ -636,7 +631,7 @@ export function PrintPage() {
           <select
             value={projectFilter}
             onChange={(e) => setProjectFilter(e.target.value)}
-            className="px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="px-3 py-1.5 h-9 rounded-lg border border-slate-200 text-sm bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-[260px]"
           >
             <option value="">All Projects / ทุกโครงการ</option>
             {projects.map((p) => (
@@ -659,34 +654,34 @@ export function PrintPage() {
                 return (
                   <div
                     key={pcr.id}
-                    className="bg-white rounded-xl border border-slate-200 hover:border-blue-300 hover:shadow-sm transition-all"
+                    className="bg-white rounded-lg border border-slate-200 hover:border-blue-300 hover:shadow-sm transition-all"
                   >
-                    <div className="flex items-center gap-4 px-5 py-4">
-                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
-                        <FileText size={18} className="text-blue-600" />
+                    <div className="flex items-center gap-2 px-3 py-2">
+                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
+                        <FileText size={15} className="text-blue-600" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-bold text-blue-700 font-mono">{pcr.id}</p>
+                        <div className="flex items-center gap-2 min-w-0 whitespace-nowrap">
+                          <p className="text-[13px] font-bold text-blue-700 font-mono">{pcr.id}</p>
                           <StatusBadge status={pcr.status} />
+                          <p className="text-[11px] text-slate-500 mt-0 truncate whitespace-nowrap min-w-0">
+                            {project?.name} • Due {formatDate(pcr.dueDate)}
+                          </p>
                         </div>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          {project?.name} • Due {formatDate(pcr.dueDate)}
-                        </p>
                       </div>
-                      <div className="hidden md:flex items-center gap-6 text-right shrink-0">
+                      <div className="hidden md:flex items-center gap-4 text-right shrink-0">
                         <div>
                           <p className="text-[10px] text-slate-400">Amount / วงเงิน</p>
-                          <p className="text-sm font-bold text-slate-800">{formatCurrency(pcr.amount)}</p>
+                          <p className="text-[13px] font-bold text-slate-800">{formatCurrency(pcr.amount)}</p>
                         </div>
                         <div>
                           <p className="text-[10px] text-slate-400">Date / วันที่</p>
-                          <p className="text-sm text-slate-600">{formatDate(pcr.date)}</p>
+                          <p className="text-[13px] text-slate-600">{formatDate(pcr.date)}</p>
                         </div>
                       </div>
                       <button
                         onClick={() => openPcrPreview(pcr)}
-                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors cursor-pointer shrink-0"
+                        className="flex items-center gap-1.5 h-8 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 rounded-lg transition-colors cursor-pointer shrink-0"
                       >
                         <Printer size={13} /> Preview & Print
                       </button>
@@ -713,30 +708,30 @@ export function PrintPage() {
                 return (
                   <div
                     key={pcc.id}
-                    className="bg-white rounded-xl border border-slate-200 hover:border-emerald-300 hover:shadow-sm transition-all"
+                    className="bg-white rounded-lg border border-slate-200 hover:border-emerald-300 hover:shadow-sm transition-all"
                   >
-                    <div className="flex items-center gap-4 px-5 py-4">
-                      <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center shrink-0">
-                        <Receipt size={18} className="text-emerald-600" />
+                    <div className="flex items-center gap-2 px-3 py-2">
+                      <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center shrink-0">
+                        <Receipt size={15} className="text-emerald-600" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-bold text-emerald-700 font-mono">{pcc.id}</p>
+                        <div className="flex items-center gap-2 min-w-0 whitespace-nowrap">
+                          <p className="text-[13px] font-bold text-emerald-700 font-mono">{pcc.id}</p>
                           <StatusBadge status={pcc.status} />
+                          <p className="text-[11px] text-slate-500 mt-0 truncate whitespace-nowrap min-w-0">
+                            {project?.name} • PCR: {pcc.pcrId} • {formatDate(pcc.date)}
+                          </p>
                         </div>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          {project?.name} • PCR: {pcc.pcrId} • {formatDate(pcc.date)}
-                        </p>
                       </div>
-                      <div className="hidden md:flex items-center gap-6 text-right shrink-0">
+                      <div className="hidden md:flex items-center gap-4 text-right shrink-0">
                         <div>
                           <p className="text-[10px] text-slate-400">Total / รวม</p>
-                          <p className="text-sm font-bold text-slate-800">{formatCurrency(pcc.totalAmount)}</p>
+                          <p className="text-[13px] font-bold text-slate-800">{formatCurrency(pcc.totalAmount)}</p>
                         </div>
                       </div>
                       <button
                         onClick={() => openPccPreview(pcc)}
-                        className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors cursor-pointer shrink-0"
+                        className="flex items-center gap-1.5 h-8 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 rounded-lg transition-colors cursor-pointer shrink-0"
                       >
                         <Printer size={13} /> Preview & Print
                       </button>

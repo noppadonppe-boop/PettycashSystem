@@ -218,13 +218,12 @@ export function MainLayout({ children }) {
       {/* Main content area */}
       <div className="flex flex-col flex-1 overflow-hidden">
         {/* Topbar */}
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 shadow-sm">
-          <div>
-            <h1 className="text-sm font-semibold text-slate-800">
+        <header className="h-12 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 shadow-sm">
+          <div className="min-w-0">
+            <h1 className="text-sm font-semibold text-slate-800 truncate whitespace-nowrap">
               CMG Petty Cash Management System
-              <span className="ml-2 text-xs font-normal text-slate-500">ระบบจัดการเงินสดย่อย</span>
+              <span className="ml-2 text-xs font-normal text-slate-500">ระบบจัดการเงินสดย่อย • Construction Management Group / กลุ่มบริหารการก่อสร้าง</span>
             </h1>
-            <p className="text-xs text-slate-400">Construction Management Group / กลุ่มบริหารการก่อสร้าง</p>
           </div>
 
           <div className="flex items-center gap-3">

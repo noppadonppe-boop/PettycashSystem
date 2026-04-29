@@ -239,14 +239,24 @@ export function DataProvider({ children }) {
   );
 
   const apVerifyPcc = useCallback(
-    (id, userId) =>
-      updatePccStatus(id, {
+    (id, userId, poLinksByItemId = {}) => {
+      const itemRows = pccItems.filter((i) => i.pccId === id);
+      const nextItems = itemRows.map((item) => ({
+        ...item,
+        poLink: (poLinksByItemId[item.id] ?? item.poLink ?? '').trim(),
+      }));
+      setPccItems((prev) => {
+        const byId = new Map(nextItems.map((item) => [item.id, item]));
+        return prev.map((item) => byId.get(item.id) || item);
+      });
+      return updatePccStatus(id, {
         status: PCC_STATUS.PENDING_GM,
         verifiedByAP: userId,
         verifiedByAPAt: new Date().toISOString().slice(0, 10),
         rejectNote: '',
-      }),
-    [updatePccStatus]
+      });
+    },
+    [updatePccStatus, pccItems]
   );
 
   const apRejectPcc = useCallback(
