@@ -17,4 +17,5 @@ export const PCC_STATUS = {
   PENDING_GM: 'Pending GM',
   GM_REJECTED: 'GM Rejected',
   APPROVED: 'Approved',
+  EDITING: 'Editing',
 };

@@ -16,28 +16,32 @@ import { PccStepper } from '../components/PccStepper';
 import { formatDate, formatCurrency } from '../lib/utils';
 import { cn } from '../lib/utils';
 import { onSnapshot, query, orderBy } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { usersColRef } from '../auth/firestorePaths';
+import { storage } from '../firebase/firebase';
 
 // ─── Attachment helpers ───────────────────────────────────────────────────────
 
-function readFileAsDataURL(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => resolve({ name: file.name, type: file.type, dataUrl: e.target.result });
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+async function uploadFileToStorage(file) {
+  const fileExt = file.name.split('.').pop() || 'file';
+  const fileName = `pcc-attachments/${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+  const storageRef = ref(storage, fileName);
+  
+  const snapshot = await uploadBytes(storageRef, file);
+  const downloadUrl = await getDownloadURL(snapshot.ref);
+  
+  return { name: file.name, type: file.type, dataUrl: downloadUrl };
 }
 
 function AttachmentThumb({ att, onRemove }) {
-  const isImage = att.type.startsWith('image/');
+  const isImage = att?.type?.startsWith('image/');
   return (
     <div className="relative group w-16 h-16 rounded-lg overflow-hidden border border-slate-200 bg-slate-100 shrink-0">
       {isImage ? (
-        <img src={att.dataUrl} alt={att.name} className="w-full h-full object-cover" />
+        <img src={att.dataUrl} alt={att.name || 'image'} className="w-full h-full object-cover" />
       ) : (
         <div className="w-full h-full flex flex-col items-center justify-center gap-0.5 px-1">
-          <FileIcon size={18} className="text-slate-400" />
+          <FileIcon size={18} className="text-slate-400 shrink-0" />
           <span className="text-[8px] text-slate-500 text-center leading-tight break-all line-clamp-2">{att.name}</span>
         </div>
       )}
@@ -62,11 +66,33 @@ function LineItemEditor({ items, onChange }) {
 
   const fileInputRefs = useRef([]);
   const cameraInputRefs = useRef([]);
+  const [uploadingIdx, setUploadingIdx] = useState(null);
 
   const handleFiles = async (idx, files) => {
-    const newAtts = await Promise.all(Array.from(files).map(readFileAsDataURL));
-    const existing = items[idx].attachments || [];
-    setField(idx, 'attachments', [...existing, ...newAtts]);
+    try {
+      setUploadingIdx(idx);
+      const results = await Promise.allSettled(Array.from(files).map(uploadFileToStorage));
+      
+      const newAtts = results
+        .filter(r => r.status === 'fulfilled')
+        .map(r => r.value);
+        
+      results.forEach((r, i) => {
+        if (r.status === 'rejected') {
+          console.error(`Upload failed for file ${files[i].name}:`, r.reason);
+          alert(`Failed to upload ${files[i].name}. Please try again.`);
+        }
+      });
+      
+      if (newAtts.length > 0) {
+        const existing = items[idx].attachments || [];
+        setField(idx, 'attachments', [...existing, ...newAtts]);
+      }
+    } catch (err) {
+      console.error('File reading/uploading error:', err);
+    } finally {
+      setUploadingIdx(null);
+    }
   };
 
   const removeAttachment = (itemIdx, attIdx) => {
@@ -151,10 +177,13 @@ function LineItemEditor({ items, onChange }) {
                 type="button"
                 title="Attach file / แนบไฟล์"
                 onClick={() => fileInputRefs.current[idx]?.click()}
-                className="w-16 h-16 rounded-lg border-2 border-dashed border-slate-300 hover:border-blue-400 hover:bg-blue-50 flex flex-col items-center justify-center gap-0.5 text-slate-400 hover:text-blue-500 transition-all cursor-pointer shrink-0"
+                disabled={uploadingIdx === idx}
+                className="w-16 h-16 rounded-lg border-2 border-dashed border-slate-300 hover:border-blue-400 hover:bg-blue-50 flex flex-col items-center justify-center gap-0.5 text-slate-400 hover:text-blue-500 transition-all cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Paperclip size={16} />
-                <span className="text-[9px] font-medium leading-tight text-center">File<br/>ไฟล์</span>
+                {uploadingIdx === idx ? <RefreshCw size={16} className="animate-spin" /> : <Paperclip size={16} />}
+                <span className="text-[9px] font-medium leading-tight text-center">
+                  {uploadingIdx === idx ? 'Wait...' : <>File<br/>ไฟล์</>}
+                </span>
               </button>
               <input
                 ref={(el) => (fileInputRefs.current[idx] = el)}
@@ -170,10 +199,13 @@ function LineItemEditor({ items, onChange }) {
                 type="button"
                 title="Take photo / ถ่ายภาพ"
                 onClick={() => cameraInputRefs.current[idx]?.click()}
-                className="w-16 h-16 rounded-lg border-2 border-dashed border-slate-300 hover:border-emerald-400 hover:bg-emerald-50 flex flex-col items-center justify-center gap-0.5 text-slate-400 hover:text-emerald-500 transition-all cursor-pointer shrink-0"
+                disabled={uploadingIdx === idx}
+                className="w-16 h-16 rounded-lg border-2 border-dashed border-slate-300 hover:border-emerald-400 hover:bg-emerald-50 flex flex-col items-center justify-center gap-0.5 text-slate-400 hover:text-emerald-500 transition-all cursor-pointer shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Camera size={16} />
-                <span className="text-[9px] font-medium leading-tight text-center">Photo<br/>ถ่ายรูป</span>
+                {uploadingIdx === idx ? <RefreshCw size={16} className="animate-spin" /> : <Camera size={16} />}
+                <span className="text-[9px] font-medium leading-tight text-center">
+                  {uploadingIdx === idx ? 'Wait...' : <>Photo<br/>ถ่ายรูป</>}
+                </span>
               </button>
               <input
                 ref={(el) => (cameraInputRefs.current[idx] = el)}
@@ -212,14 +244,14 @@ function isSpecialProject(projectId) {
   return projectId === 'PRJ-2026-J-009';
 }
 
-function CreatePccForm({ onSubmit, onClose }) {
+function CreatePccForm({ onSubmit, onClose, initialData = null, initialItems = [], isEdit = false }) {
   const { currentUser } = useAuth();
   const { projects, pcrs, getPcrRemainingBalance } = useData();
 
-  const [projectId, setProjectId] = useState('');
-  const [pcrId, setPcrId] = useState('');
-  const [relatedProjectId, setRelatedProjectId] = useState('');
-  const [items, setItems] = useState([{ description: '', amount: '', reason: '', attachments: [] }]);
+  const [projectId, setProjectId] = useState(initialData?.projectId || '');
+  const [pcrId, setPcrId] = useState(initialData?.pcrId || '');
+  const [relatedProjectId, setRelatedProjectId] = useState(initialData?.relatedProjectId || '');
+  const [items, setItems] = useState(initialItems.length > 0 ? initialItems : [{ description: '', amount: '', reason: '', attachments: [] }]);
   const [errors, setErrors] = useState({});
 
   // True when selected project is in the PRJ-????-J-001..009 range
@@ -229,12 +261,22 @@ function CreatePccForm({ onSubmit, onClose }) {
   const last5Projects = useMemo(() => projects.slice(0, 5), [projects]);
 
   const activePcrs = useMemo(
-    () => pcrs.filter((p) => p.projectId === projectId && p.status === PCR_STATUS.ACKNOWLEDGED),
-    [pcrs, projectId]
+    () => {
+      const list = pcrs.filter((p) => p.projectId === projectId && p.status === PCR_STATUS.ACKNOWLEDGED);
+      if (isEdit && initialData?.pcrId && !list.find(p => p.id === initialData.pcrId)) {
+        const orig = pcrs.find(p => p.id === initialData.pcrId);
+        if (orig) list.push(orig);
+      }
+      return list;
+    },
+    [pcrs, projectId, isEdit, initialData]
   );
 
   const selectedPcr = pcrs.find((p) => p.id === pcrId);
-  const remaining = pcrId ? getPcrRemainingBalance(pcrId) : null;
+  const remainingCalculated = pcrId ? getPcrRemainingBalance(pcrId) : null;
+  const remaining = isEdit && pcrId === initialData?.pcrId 
+    ? (remainingCalculated !== null ? remainingCalculated + (initialData?.totalAmount || 0) : null)
+    : remainingCalculated;
   const newTotal = items.reduce((s, i) => s + (Number(i.amount) || 0), 0);
   const wouldExceed = remaining !== null && newTotal > remaining;
 
@@ -260,8 +302,8 @@ function CreatePccForm({ onSubmit, onClose }) {
         pcrId,
         projectId,
         relatedProjectId: needsRelatedProject ? relatedProjectId : '',
-        requester: currentUser.id,
-        date: new Date().toISOString().slice(0, 10),
+        requester: initialData?.requester || currentUser.id,
+        date: initialData?.date || new Date().toISOString().slice(0, 10),
       },
       items
     );
@@ -360,7 +402,7 @@ function CreatePccForm({ onSubmit, onClose }) {
       <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
         <Button type="button" variant="secondary" onClick={onClose}>Cancel / ยกเลิก</Button>
         <Button type="submit" variant="primary" disabled={wouldExceed}>
-          <Receipt size={15} /> Submit PCC / ส่งคำขอ PCC
+          <Receipt size={15} /> {isEdit ? 'Save Changes / บันทึกการแก้ไข' : 'Submit PCC / ส่งคำขอ PCC'}
         </Button>
       </div>
     </form>
@@ -438,6 +480,16 @@ function PccRow({ pcc, onAction }) {
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-mono font-semibold text-blue-700">{pcc.id}</span>
             <Badge status={pcc.status} />
+            {pcc.editStatus === 'REQUESTED' && (
+              <span className="inline-flex items-center gap-1 bg-purple-100 text-purple-700 border border-purple-200 rounded px-2 py-0.5 text-xs font-semibold">
+                <RefreshCw size={12} /> Edit Requested
+              </span>
+            )}
+            {pcc.status === PCC_STATUS.EDITING && (
+              <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-700 border border-amber-200 rounded px-2 py-0.5 text-xs font-semibold">
+                <FileIcon size={12} /> Editing
+              </span>
+            )}
           </div>
           <p className="text-xs text-slate-500 mt-0.5 truncate">
             {project?.name} • PCR: {pcc.pcrId} • {formatDate(pcc.date)} • By: {getUserName(users, pcc.createdBy)}
@@ -498,28 +550,39 @@ function PccRow({ pcc, onAction }) {
                             ) : (
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 {atts.map((att, ai) => (
-                                  att.type.startsWith('image/') ? (
-                                    <a key={ai} href={att.dataUrl} target="_blank" rel="noreferrer" title={att.name}>
+                                  att?.type?.startsWith('image/') ? (
+                                    <a 
+                                      key={ai} 
+                                      href={att.dataUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      title={att.name || 'Image'}
+                                      className="relative block group w-10 h-10 rounded-md border border-slate-200 hover:border-blue-400 transition-colors overflow-hidden focus:outline-none focus:ring-2 focus:ring-blue-400 shrink-0"
+                                    >
                                       <img
                                         src={att.dataUrl}
-                                        alt={att.name}
-                                        className="w-10 h-10 rounded-md object-cover border border-slate-200 hover:border-blue-400 transition-colors"
+                                        alt={att.name || 'Image'}
+                                        className="w-full h-full object-cover"
                                       />
+                                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <ImageIcon size={14} className="text-white" />
+                                      </div>
                                     </a>
                                   ) : (
                                     <a
                                       key={ai}
                                       href={att.dataUrl}
-                                      download={att.name}
-                                      title={att.name}
-                                      className="w-10 h-10 rounded-md border border-slate-200 hover:border-blue-400 bg-slate-50 flex flex-col items-center justify-center gap-0.5 transition-colors"
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      title={att.name || 'File'}
+                                      className="w-10 h-10 rounded-md border border-slate-200 hover:border-blue-400 bg-slate-50 flex flex-col items-center justify-center gap-0.5 transition-colors shrink-0"
                                     >
-                                      <FileIcon size={14} className="text-slate-400" />
-                                      <span className="text-[7px] text-slate-400 leading-tight px-0.5 text-center truncate w-full">.{att.name.split('.').pop()}</span>
+                                      <FileIcon size={14} className="text-slate-400 shrink-0" />
+                                      <span className="text-[7px] text-slate-400 leading-tight px-0.5 text-center truncate w-full">.{att.name ? att.name.split('.').pop() : 'file'}</span>
                                     </a>
                                   )
                                 ))}
-                                <span className="text-[10px] text-slate-400">{atts.length} file{atts.length > 1 ? 's' : ''}</span>
+                                <span className="text-[10px] text-slate-400 whitespace-nowrap">{atts.length} file{atts.length > 1 ? 's' : ''}</span>
                               </div>
                             )}
                           </td>
@@ -567,6 +630,7 @@ function PccRow({ pcc, onAction }) {
           </div>
         </div>
       )}
+
     </div>
   );
 }
@@ -578,14 +642,16 @@ const BROAD_VIEW_ROLES = ['MasterAdmin', 'MD', 'GM', 'AccountPay', 'ppeAdmin', '
 export function PccPage() {
   const { currentUser, hasRole, userProfile } = useAuth();
   const {
-    projects, pccs, pcrs,
+    projects, pccs, pcrs, getItemsByPcc,
     pmVerifyPcc, apVerifyPcc, apRejectPcc, gmApprovePcc, gmRejectPcc,
-    createPcc
+    createPcc, deletePcc, requestEditPcc, approveEditPcc, saveEditPcc
   } = useData();
 
   const [showCreate, setShowCreate] = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
   const [rejectTarget, setRejectTarget] = useState(null);
   const [rejectMode, setRejectMode] = useState('ap');
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const [projectFilter, setProjectFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
 
@@ -623,32 +689,35 @@ export function PccPage() {
 
   const renderActions = (pcc) => {
     const actions = [];
+    
+    const isEditing = pcc.status === PCC_STATUS.EDITING;
+    const isEditRequested = pcc.editStatus === 'REQUESTED';
 
-    if (hasRole('PM') && pcc.status === PCC_STATUS.PENDING_PM) {
+    if (hasRole('PM') && pcc.status === PCC_STATUS.PENDING_PM && !isEditing) {
       actions.push(
-        <Button key="verify" variant="success" size="sm" onClick={() => pmVerifyPcc(pcc.id, currentUser.id)}>
+        <Button key="verify" variant="success" size="sm" onClick={() => pmVerifyPcc(pcc.id, currentUser.id)} disabled={isEditRequested}>
           <CheckCircle size={14} /> Verify & Pass to AP / ตรวจสอบและส่งต่อ AP
         </Button>
       );
     }
 
-    if (hasRole('AccountPay') && pcc.status === PCC_STATUS.PENDING_AP) {
+    if (hasRole('AccountPay') && pcc.status === PCC_STATUS.PENDING_AP && !isEditing) {
       actions.push(
-        <Button key="apverify" variant="success" size="sm" onClick={() => apVerifyPcc(pcc.id, currentUser.id)}>
+        <Button key="apverify" variant="success" size="sm" onClick={() => apVerifyPcc(pcc.id, currentUser.id)} disabled={isEditRequested}>
           <CheckCircle size={14} /> Verify & Pass to GM / ตรวจสอบและส่งต่อ GM
         </Button>,
-        <Button key="apreject" variant="danger" size="sm" onClick={() => { setRejectTarget(pcc); setRejectMode('ap'); }}>
+        <Button key="apreject" variant="danger" size="sm" onClick={() => { setRejectTarget(pcc); setRejectMode('ap'); }} disabled={isEditRequested}>
           <XCircle size={14} /> Reject Back to SiteAdmin / ส่งคืน SiteAdmin
         </Button>
       );
     }
 
-    if (hasRole('GM', 'MD') && pcc.status === PCC_STATUS.PENDING_GM) {
+    if (hasRole('GM', 'MD') && pcc.status === PCC_STATUS.PENDING_GM && !isEditing) {
       actions.push(
-        <Button key="gmapprove" variant="success" size="sm" onClick={() => gmApprovePcc(pcc.id, currentUser.id)}>
+        <Button key="gmapprove" variant="success" size="sm" onClick={() => gmApprovePcc(pcc.id, currentUser.id)} disabled={isEditRequested}>
           <CheckCircle size={14} /> Approve Payment / อนุมัติการจ่ายเงิน
         </Button>,
-        <Button key="gmreject" variant="danger" size="sm" onClick={() => { setRejectTarget(pcc); setRejectMode('gm'); }}>
+        <Button key="gmreject" variant="danger" size="sm" onClick={() => { setRejectTarget(pcc); setRejectMode('gm'); }} disabled={isEditRequested}>
           <XCircle size={14} /> Reject / ปฏิเสธ
         </Button>
       );
@@ -659,6 +728,50 @@ export function PccPage() {
         <span key="info" className="text-xs text-slate-500 italic flex items-center gap-1">
           <RefreshCw size={12} /> This PCC was rejected. Please create a new corrected PCC. / PCC นี้ถูกปฏิเสธ กรุณาสร้าง PCC ใหม่ที่แก้ไขแล้ว
         </span>
+      );
+    }
+
+    if (userProfile?.roles?.includes('MasterAdmin')) {
+      actions.push(
+        <Button key="delete" variant="danger" size="sm" onClick={() => setDeleteTarget(pcc)}>
+          <Trash2 size={14} /> Delete / ลบ
+        </Button>
+      );
+    }
+
+    // Edit Request Button (Available to any role if it's in a pending state)
+    const canRequestEdit = [PCC_STATUS.PENDING_PM, PCC_STATUS.PENDING_AP, PCC_STATUS.PENDING_GM].includes(pcc.status) 
+                           && !isEditRequested && !isEditing;
+    if (canRequestEdit) {
+      actions.push(
+        <Button key="request_edit" variant="secondary" size="sm" onClick={() => requestEditPcc(pcc.id, currentUser.id)}>
+          <RefreshCw size={14} /> Request Edit / ขอแก้ไข
+        </Button>
+      );
+    }
+    
+    // Approve Edit Button (Available to the approver of the current step)
+    if (isEditRequested) {
+      const canApproveEdit = 
+        (pcc.status === PCC_STATUS.PENDING_PM && hasRole('PM')) ||
+        (pcc.status === PCC_STATUS.PENDING_AP && hasRole('AccountPay')) ||
+        (pcc.status === PCC_STATUS.PENDING_GM && hasRole('GM', 'MD'));
+        
+      if (canApproveEdit) {
+        actions.push(
+          <Button key="approve_edit" variant="success" size="sm" onClick={() => approveEditPcc(pcc.id, pcc.status)}>
+            <CheckCircle size={14} /> Approve Edit / อนุญาตแก้ไข
+          </Button>
+        );
+      }
+    }
+    
+    // Edit Button (Available to the requester when edit is approved)
+    if (isEditing && pcc.editRequestedBy === currentUser.id) {
+      actions.push(
+        <Button key="edit" variant="primary" size="sm" onClick={() => setEditTarget(pcc)}>
+          <FileIcon size={14} /> Edit / แก้ไข
+        </Button>
       );
     }
 
@@ -721,18 +834,64 @@ export function PccPage() {
       <Modal open={showCreate} onClose={() => setShowCreate(false)} title="New Petty Cash Claim (PCC) / ใบเบิกเงินสดย่อยใหม่" size="lg">
         <CreatePccForm onSubmit={handleCreate} onClose={() => setShowCreate(false)} />
       </Modal>
+      
+      {/* Edit Modal */}
+      {editTarget && (
+        <Modal open={true} onClose={() => setEditTarget(null)} title={`Edit PCC / แก้ไข PCC: ${editTarget.id}`} size="lg">
+          <CreatePccForm 
+            initialData={editTarget}
+            initialItems={getItemsByPcc(editTarget.id)}
+            isEdit={true}
+            onSubmit={(data, items) => {
+              saveEditPcc(editTarget.id, data, items, editTarget.statusBeforeEdit);
+              setEditTarget(null);
+            }} 
+            onClose={() => setEditTarget(null)} 
+          />
+        </Modal>
+      )}
 
       {/* Reject Modal */}
       <RejectModal
         open={!!rejectTarget}
         onClose={() => setRejectTarget(null)}
-        title={`Reject PCC – ${rejectTarget?.id}`}
         onConfirm={(note) => {
           if (rejectMode === 'ap') apRejectPcc(rejectTarget.id, currentUser.id, note);
           else gmRejectPcc(rejectTarget.id, currentUser.id, note);
           setRejectTarget(null);
         }}
+        title={`Reject PCC / ปฏิเสธ PCC: ${rejectTarget?.id}`}
       />
+
+      {/* Delete Confirmation Modal */}
+      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Confirm Delete / ยืนยันการลบ" size="sm">
+        <div className="p-6 flex flex-col gap-4">
+          <div className="flex flex-col items-center text-center gap-3">
+            <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center">
+              <Trash2 size={24} />
+            </div>
+            <div>
+              <p className="text-slate-800 font-semibold mb-1">Are you sure you want to delete this PCC?</p>
+              <p className="text-sm text-slate-500">
+                PCC: <span className="font-mono font-bold text-slate-700">{deleteTarget?.id}</span>
+                <br />
+                This action cannot be undone. / การกระทำนี้ไม่สามารถย้อนกลับได้
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 mt-2">
+            <Button variant="secondary" onClick={() => setDeleteTarget(null)}>Cancel / ยกเลิก</Button>
+            <Button variant="danger" onClick={() => {
+              if (deleteTarget) {
+                deletePcc(deleteTarget.id);
+                setDeleteTarget(null);
+              }
+            }}>
+              Confirm Delete / ยืนยันการลบ
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

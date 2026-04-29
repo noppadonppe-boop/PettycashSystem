@@ -344,6 +344,22 @@ export function DataProvider({ children }) {
     [updatePcrStatus]
   );
 
+  const deletePcr = useCallback(
+    async (id) => {
+      // Update local state immediately
+      setPcrs((prev) => prev.filter((p) => p.id !== id));
+
+      try {
+        // Delete PCR from Firebase
+        const pcrRef = doc(db, `${ROOT_COLLECTION}/${ROOT_DOC}/pcrs/${id}`);
+        await deleteDoc(pcrRef);
+      } catch (err) {
+        console.error('Error deleting PCR:', err);
+      }
+    },
+    [db]
+  );
+
   // ─── PCC CRUD & Workflow ──────────────────────────────────────────────────────
 
   const createPcc = useCallback(
@@ -455,6 +471,7 @@ export function DataProvider({ children }) {
   const resubmitPcc = useCallback(
     async (id, items) => {
       const totalAmount = items.reduce((s, i) => s + Number(i.amount), 0);
+      const itemsToDelete = pccItems.filter((i) => i.pccId === id);
       
       // Update PCC status
       await updatePccStatus(id, {
@@ -487,11 +504,104 @@ export function DataProvider({ children }) {
         amount: Number(item.amount),
       }));
       
+      for (const item of itemsToDelete) {
+        const itemRef = doc(db, `${ROOT_COLLECTION}/${ROOT_DOC}/pccItems/${item.id}`);
+        await deleteDoc(itemRef);
+      }
       for (const item of newItems) {
         await saveToFirebase('pccItems', item.id, item);
       }
     },
-    [updatePccStatus, saveToFirebase]
+    [updatePccStatus, saveToFirebase, pccItems, db]
+  );
+
+  const requestEditPcc = useCallback(
+    (id, userId) =>
+      updatePccStatus(id, {
+        editRequested: true,
+        editRequestedBy: userId,
+        editStatus: 'REQUESTED',
+      }),
+    [updatePccStatus]
+  );
+
+  const approveEditPcc = useCallback(
+    (id, currentStatus) =>
+      updatePccStatus(id, {
+        status: PCC_STATUS.EDITING,
+        statusBeforeEdit: currentStatus,
+        editStatus: 'APPROVED',
+      }),
+    [updatePccStatus]
+  );
+
+  const saveEditPcc = useCallback(
+    async (id, data, items, statusBeforeEdit) => {
+      const totalAmount = items.reduce((s, i) => s + Number(i.amount), 0);
+      const itemsToDelete = pccItems.filter((i) => i.pccId === id);
+      
+      await updatePccStatus(id, {
+        ...data,
+        status: statusBeforeEdit,
+        totalAmount,
+        editRequested: false,
+        editRequestedBy: null,
+        editStatus: null,
+        statusBeforeEdit: null,
+      });
+      
+      setPccItems((prev) => {
+        const filtered = prev.filter((i) => i.pccId !== id);
+        const newItems = items.map((item, idx) => ({
+          ...item,
+          id: `ITEM-${Date.now()}-${idx}`,
+          pccId: id,
+          amount: Number(item.amount),
+        }));
+        return [...filtered, ...newItems];
+      });
+      
+      const newItems = items.map((item, idx) => ({
+        ...item,
+        id: `ITEM-${Date.now()}-${idx}`,
+        pccId: id,
+        amount: Number(item.amount),
+      }));
+      
+      for (const item of itemsToDelete) {
+        const itemRef = doc(db, `${ROOT_COLLECTION}/${ROOT_DOC}/pccItems/${item.id}`);
+        await deleteDoc(itemRef);
+      }
+      for (const item of newItems) {
+        await saveToFirebase('pccItems', item.id, item);
+      }
+    },
+    [updatePccStatus, saveToFirebase, pccItems, db]
+  );
+
+  const deletePcc = useCallback(
+    async (id) => {
+      const itemsToDelete = pccItems.filter((i) => i.pccId === id);
+
+      // Update local state immediately
+      setPccs((prev) => prev.filter((p) => p.id !== id));
+      setPccItems((prev) => prev.filter((i) => i.pccId !== id));
+
+      try {
+        // Delete PCC from Firebase
+        const pccRef = doc(db, `${ROOT_COLLECTION}/${ROOT_DOC}/pccs/${id}`);
+        await deleteDoc(pccRef);
+
+        // Delete PCC items from Firebase
+        for (const item of itemsToDelete) {
+          const itemRef = doc(db, `${ROOT_COLLECTION}/${ROOT_DOC}/pccItems/${item.id}`);
+          await deleteDoc(itemRef);
+        }
+      } catch (err) {
+        console.error('Error deleting PCC:', err);
+      }
+    },
+    [pccItems, db]
   );
 
   // ─── Dashboard helpers ────────────────────────────────────────────────────────
@@ -574,6 +684,7 @@ export function DataProvider({ children }) {
           requestClosePcr,
           confirmClosurePcr,
           officiallyClosePcr,
+          deletePcr,
           // PCC actions
           createPcc,
           pmVerifyPcc,
@@ -582,6 +693,10 @@ export function DataProvider({ children }) {
           gmApprovePcc,
           gmRejectPcc,
           resubmitPcc,
+          requestEditPcc,
+          approveEditPcc,
+          saveEditPcc,
+          deletePcc,
           // Dashboard
           getTotalOutstandingCash,
           getUtilizationByProject,

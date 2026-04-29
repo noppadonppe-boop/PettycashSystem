@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Plus, CheckCircle, XCircle, DollarSign, FileText,
-  AlertTriangle, ChevronDown, ChevronUp, RefreshCw, Lock
+  AlertTriangle, ChevronDown, ChevronUp, RefreshCw, Lock, Trash2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/SafeFirebaseContext';
@@ -263,7 +263,7 @@ export function PcrPage() {
   const {
     projects, pcrs, createPcr, approvePcr, rejectPcr, resubmitPcr,
     acknowledgePcr, requestClosePcr, confirmClosurePcr, officiallyClosePcr,
-    getPcrApprovedSpend
+    getPcrApprovedSpend, deletePcr
   } = useData();
   const [searchParams] = useSearchParams();
   const filterProject = searchParams.get('project');
@@ -273,6 +273,7 @@ export function PcrPage() {
   const [rejectTarget, setRejectTarget] = useState(null);
   const [closureTarget, setClosureTarget] = useState(null);
   const [confirmReceiptTarget, setConfirmReceiptTarget] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const [projectFilter, setProjectFilter] = useState(filterProject || '');
   const [statusFilter, setStatusFilter] = useState('');
 
@@ -280,8 +281,12 @@ export function PcrPage() {
 
   const canCreate = hasRole('PM') || userProfile?.roles?.includes('MasterAdmin');
 
-  const pmProjects = isBroadView
+  const userProjects = isBroadView
     ? projects
+    : (userProfile?.assignedProjects?.length > 0)
+    ? projects.filter((p) => userProfile.assignedProjects.includes(p.id))
+    : hasRole('CM')
+    ? projects.filter((p) => p.cmId === currentUser?.id)
     : hasRole('PM')
     ? projects.filter((p) => p.pmId === currentUser?.id)
     : projects;
@@ -289,13 +294,21 @@ export function PcrPage() {
   const visiblePcrs = useMemo(() => {
     let list = pcrs;
     if (!isBroadView) {
-      if (hasRole('PM')) list = list.filter((p) => projects.find((pr) => pr.id === p.projectId && pr.pmId === currentUser?.id));
-      if (hasRole('CM')) list = list.filter((p) => projects.find((pr) => pr.id === p.projectId && pr.cmId === currentUser?.id));
+      const myProjectIds = (userProfile?.assignedProjects?.length > 0)
+        ? userProfile.assignedProjects
+        : projects.filter((p) => 
+            (hasRole('PM') && p.pmId === currentUser?.id) || 
+            (hasRole('CM') && p.cmId === currentUser?.id)
+          ).map(p => p.id);
+          
+      if (hasRole('PM') || hasRole('CM') || userProfile?.assignedProjects?.length > 0) {
+        list = list.filter((p) => myProjectIds.includes(p.projectId));
+      }
     }
     if (projectFilter) list = list.filter((p) => p.projectId === projectFilter);
     if (statusFilter) list = list.filter((p) => p.status === statusFilter);
     return list.slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  }, [pcrs, currentUser, projects, projectFilter, statusFilter, isBroadView]);
+  }, [pcrs, currentUser, projects, projectFilter, statusFilter, isBroadView, userProfile, hasRole]);
 
   const getProject = (id) => projects.find((p) => p.id === id);
 
@@ -365,6 +378,14 @@ export function PcrPage() {
       );
     }
 
+    if (userProfile?.roles?.includes('MasterAdmin')) {
+      actions.push(
+        <Button key="delete" variant="danger" size="sm" onClick={() => setDeleteTarget(pcr)}>
+          <Trash2 size={14} /> Delete / ลบ
+        </Button>
+      );
+    }
+
     return actions;
   };
 
@@ -428,14 +449,14 @@ export function PcrPage() {
 
       {/* Modals */}
       <Modal open={showCreate} onClose={() => setShowCreate(false)} title="New Petty Cash Request (PCR) / คำขอเงินสดย่อยใหม่" size="md">
-        <PcrForm projects={pmProjects} onSubmit={handleCreate} onClose={() => setShowCreate(false)} title="Submit PCR / ส่งคำขอ" />
+        <PcrForm projects={userProjects} onSubmit={handleCreate} onClose={() => setShowCreate(false)} title="Submit PCR / ส่งคำขอ" />
       </Modal>
 
       <Modal open={!!editPcr} onClose={() => setEditPcr(null)} title={`Edit & Resubmit – ${editPcr?.id}`} size="md">
         {editPcr && (
           <PcrForm
             initial={editPcr}
-            projects={pmProjects}
+            projects={userProjects}
             onSubmit={handleResubmit}
             onClose={() => setEditPcr(null)}
             title="Resubmit PCR / ส่งคำขอใหม่"
@@ -468,6 +489,36 @@ export function PcrPage() {
             onConfirm={(note) => { confirmClosurePcr(confirmReceiptTarget.id, currentUser.id, note); setConfirmReceiptTarget(null); }}
           />
         )}
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Confirm Delete / ยืนยันการลบ" size="sm">
+        <div className="p-6 flex flex-col gap-4">
+          <div className="flex flex-col items-center text-center gap-3">
+            <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center">
+              <Trash2 size={24} />
+            </div>
+            <div>
+              <p className="text-slate-800 font-semibold mb-1">Are you sure you want to delete this PCR?</p>
+              <p className="text-sm text-slate-500">
+                PCR: <span className="font-mono font-bold text-slate-700">{deleteTarget?.id}</span>
+                <br />
+                This action cannot be undone. / การกระทำนี้ไม่สามารถย้อนกลับได้
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 mt-2">
+            <Button variant="secondary" onClick={() => setDeleteTarget(null)}>Cancel / ยกเลิก</Button>
+            <Button variant="danger" onClick={() => {
+              if (deleteTarget) {
+                deletePcr(deleteTarget.id);
+                setDeleteTarget(null);
+              }
+            }}>
+              Confirm Delete / ยืนยันการลบ
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );
