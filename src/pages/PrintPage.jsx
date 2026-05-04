@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Printer, FileText, Receipt, ChevronDown, ChevronUp, Building2 } from 'lucide-react';
 import { useData } from '../context/SafeFirebaseContext';
 import { useAuth } from '../context/AuthContext';
@@ -517,10 +518,10 @@ function DocumentFooter({ docId, printDate }) {
 
 function PrintPreviewModal({ doc, onClose }) {
   if (!doc) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-slate-700/90 backdrop-blur-sm">
+  return createPortal(
+    <div className="print-portal fixed inset-0 z-50 flex flex-col bg-slate-700/90 backdrop-blur-sm">
       {/* Toolbar */}
-      <div className="h-14 bg-slate-900 flex items-center justify-between px-6 shrink-0 border-b border-slate-700">
+      <div className="print-portal-toolbar h-14 bg-slate-900 flex items-center justify-between px-6 shrink-0 border-b border-slate-700">
         <div className="flex items-center gap-3">
           <div className="w-2 h-2 rounded-full bg-blue-400" />
           <p className="text-white text-sm font-semibold">
@@ -544,7 +545,7 @@ function PrintPreviewModal({ doc, onClose }) {
         </div>
       </div>
       {/* Scrollable preview area */}
-      <div className="flex-1 overflow-y-auto py-8 print:p-0 print:overflow-visible">
+      <div className="print-portal-content flex-1 overflow-y-auto py-8">
         <div id="print-area">
           {doc.type === 'pcr' ? (
             <PcrDocument pcr={doc.data} project={doc.project} />
@@ -553,7 +554,8 @@ function PrintPreviewModal({ doc, onClose }) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

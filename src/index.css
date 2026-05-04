@@ -30,35 +30,55 @@ body {
     margin: 0;
   }
 
+  html,
   body {
     background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    min-height: 100% !important;
   }
 
-  /* Hide everything except the print area */
-  body > * {
+  /* Hide the live app — print only the portal-rendered preview */
+  #root {
     display: none !important;
   }
 
-  /* Show only the print-area inside the preview modal */
-  #print-area,
-  #print-area * {
-    display: revert !important;
-    visibility: visible !important;
+  /* Strip the modal-overlay chrome so the document flows naturally onto pages */
+  .print-portal {
+    position: static !important;
+    inset: auto !important;
+    display: block !important;
+    height: auto !important;
+    background: white !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    z-index: auto !important;
+  }
+
+  .print-portal-toolbar {
+    display: none !important;
+  }
+
+  .print-portal-content {
+    display: block !important;
+    flex: none !important;
+    overflow: visible !important;
+    height: auto !important;
+    padding: 0 !important;
   }
 
   #print-area {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100% !important;
-    z-index: 9999 !important;
+    display: block !important;
+    width: 210mm !important;
+    min-height: 297mm !important;
   }
 
   .a4-page {
     width: 210mm !important;
     min-height: 297mm !important;
     padding: 16mm 18mm !important;
-    margin: 0 auto !important;
+    margin: 0 !important;
     box-shadow: none !important;
     page-break-after: always;
   }
