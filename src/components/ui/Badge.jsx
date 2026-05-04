@@ -11,6 +11,7 @@ const variants = {
   'Pending PM': 'bg-amber-100 text-amber-800 border-amber-200',
   'Pending AP': 'bg-orange-100 text-orange-800 border-orange-200',
   'AP Rejected': 'bg-rose-100 text-rose-800 border-rose-200',
+  Receive: 'bg-purple-100 text-purple-800 border-purple-200',
   default: 'bg-slate-100 text-slate-700 border-slate-200',
 };
 

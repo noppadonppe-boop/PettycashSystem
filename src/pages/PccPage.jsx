@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Plus, CheckCircle, XCircle, Receipt, Trash2,
   ChevronDown, ChevronUp, AlertCircle, RefreshCw,
@@ -13,7 +14,7 @@ import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { Input, Textarea, Select } from '../components/ui/Input';
 import { PccStepper } from '../components/PccStepper';
-import { formatDate, formatCurrency } from '../lib/utils';
+import { formatDate, formatCurrency, formatNumberInput, parseNumberInput } from '../lib/utils';
 import { cn } from '../lib/utils';
 import { onSnapshot, query, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -100,7 +101,7 @@ function LineItemEditor({ items, onChange }) {
     setField(itemIdx, 'attachments', existing.filter((_, i) => i !== attIdx));
   };
 
-  const total = items.reduce((s, i) => s + (Number(i.amount) || 0), 0);
+  const total = items.reduce((s, i) => s + parseNumberInput(i.amount), 0);
 
   return (
     <div className="flex flex-col gap-3">
@@ -133,13 +134,12 @@ function LineItemEditor({ items, onChange }) {
               </div>
               <div className="col-span-3">
                 <input
-                  type="number"
-                  min="0"
-                  step="0.01"
+                  type="text"
+                  inputMode="decimal"
                   className="w-full px-2 py-1.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                   placeholder="Amount / จำนวนเงิน (บาท)"
                   value={item.amount}
-                  onChange={(e) => setField(idx, 'amount', e.target.value)}
+                  onChange={(e) => setField(idx, 'amount', formatNumberInput(e.target.value))}
                 />
               </div>
               <div className="col-span-3">
@@ -245,13 +245,19 @@ function isSpecialProject(projectId) {
 }
 
 function CreatePccForm({ onSubmit, onClose, initialData = null, initialItems = [], isEdit = false }) {
-  const { currentUser } = useAuth();
-  const { projects, pcrs, getPcrRemainingBalance } = useData();
+  const { currentUser, userProfile } = useAuth();
+  const { projects, pcrs, pccs, getPcrRemainingBalance, receivePccToPcr } = useData();
 
   const [projectId, setProjectId] = useState(initialData?.projectId || '');
   const [pcrId, setPcrId] = useState(initialData?.pcrId || '');
   const [relatedProjectId, setRelatedProjectId] = useState(initialData?.relatedProjectId || '');
-  const [items, setItems] = useState(initialItems.length > 0 ? initialItems : [{ description: '', amount: '', reason: '', attachments: [] }]);
+  const [items, setItems] = useState(
+    initialItems.length > 0
+      ? initialItems.map((item) => ({ ...item, amount: formatNumberInput(item.amount) }))
+      : [{ description: '', amount: '', reason: '', attachments: [] }]
+  );
+  const [showReceiveModal, setShowReceiveModal] = useState(false);
+  const [selectedReceivePccIds, setSelectedReceivePccIds] = useState([]);
   const [errors, setErrors] = useState({});
 
   // True when selected project is in the PRJ-????-J-001..009 range
@@ -273,11 +279,30 @@ function CreatePccForm({ onSubmit, onClose, initialData = null, initialItems = [
   );
 
   const selectedPcr = pcrs.find((p) => p.id === pcrId);
+  const canReceiveForSelectedPcr = !!selectedPcr && (
+    selectedPcr.createdBy === currentUser.id ||
+    userProfile?.roles?.includes('MasterAdmin')
+  );
+  const receivablePccs = useMemo(
+    () => pcrId && canReceiveForSelectedPcr
+      ? pccs.filter(
+          (p) =>
+            p.pcrId === pcrId &&
+            p.status === PCC_STATUS.APPROVED &&
+            !!p.approvedByGM &&
+            !p.receivedToPcr
+        )
+      : [],
+    [pccs, pcrId, canReceiveForSelectedPcr]
+  );
   const remainingCalculated = pcrId ? getPcrRemainingBalance(pcrId) : null;
   const remaining = isEdit && pcrId === initialData?.pcrId 
     ? (remainingCalculated !== null ? remainingCalculated + (initialData?.totalAmount || 0) : null)
     : remainingCalculated;
-  const newTotal = items.reduce((s, i) => s + (Number(i.amount) || 0), 0);
+  const newTotal = items.reduce((s, i) => s + parseNumberInput(i.amount), 0);
+  const receiveTotal = receivablePccs
+    .filter((p) => selectedReceivePccIds.includes(p.id))
+    .reduce((sum, p) => sum + (p.totalAmount || 0), 0);
   const wouldExceed = remaining !== null && newTotal > remaining;
 
   const validate = () => {
@@ -286,11 +311,24 @@ function CreatePccForm({ onSubmit, onClose, initialData = null, initialItems = [
     if (!pcrId) e.pcrId = 'Select an active PCR';
     if (needsRelatedProject && !relatedProjectId) e.relatedProjectId = 'กรุณาเลือกโครงการที่ใช้งาน';
     if (items.length === 0) e.items = 'Add at least one item';
-    if (items.some((i) => !i.description.trim() || !i.amount || Number(i.amount) <= 0)) {
+    if (items.some((i) => !i.description.trim() || !i.amount || parseNumberInput(i.amount) <= 0)) {
       e.items = 'All items must have a description and valid amount';
     }
     if (wouldExceed) e.budget = `This claim (${formatCurrency(newTotal)}) exceeds the PCR remaining balance (${formatCurrency(remaining)}).`;
     return e;
+  };
+
+  const toggleReceivePcc = (id) => {
+    setSelectedReceivePccIds((prev) =>
+      prev.includes(id) ? prev.filter((pccId) => pccId !== id) : [...prev, id]
+    );
+  };
+
+  const handleReceiveConfirm = async () => {
+    if (selectedReceivePccIds.length === 0) return;
+    await Promise.all(selectedReceivePccIds.map((id) => receivePccToPcr(id, currentUser.id)));
+    setSelectedReceivePccIds([]);
+    setShowReceiveModal(false);
   };
 
   const handleSubmit = (e) => {
@@ -305,7 +343,7 @@ function CreatePccForm({ onSubmit, onClose, initialData = null, initialItems = [
         requester: initialData?.requester || currentUser.id,
         date: initialData?.date || new Date().toISOString().slice(0, 10),
       },
-      items
+      items.map((item) => ({ ...item, amount: parseNumberInput(item.amount) }))
     );
   };
 
@@ -384,6 +422,13 @@ function CreatePccForm({ onSubmit, onClose, initialData = null, initialItems = [
               ⚠ Submission blocked: claim exceeds available PCR balance. / ไม่สามารถส่งได้: ยอดเกินคงเหลือ PCR
             </p>
           )}
+          {canReceiveForSelectedPcr && receivablePccs.length > 0 && (
+            <div className="flex justify-end mt-3">
+              <Button type="button" variant="success" size="sm" onClick={() => setShowReceiveModal(true)}>
+                <Receipt size={14} /> Receive / รีซีฟ
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
@@ -393,6 +438,39 @@ function CreatePccForm({ onSubmit, onClose, initialData = null, initialItems = [
           {errors.budget}
         </div>
       )}
+
+      <Modal
+        open={showReceiveModal}
+        onClose={() => { setShowReceiveModal(false); setSelectedReceivePccIds([]); }}
+        title="Receive PCC / รับยอด PCC"
+        size="md"
+      >
+        <div className="p-6 flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            {receivablePccs.map((pcc) => (
+              <label key={pcc.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 p-3 hover:bg-emerald-50 cursor-pointer">
+                <div className="flex items-center gap-3 min-w-0">
+                  <input type="checkbox" checked={selectedReceivePccIds.includes(pcc.id)} onChange={() => toggleReceivePcc(pcc.id)} className="h-4 w-4 accent-emerald-600 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-800 truncate">{pcc.id}</p>
+                    <p className="text-xs text-slate-500">{formatDate(pcc.date)} • GM Approve</p>
+                  </div>
+                </div>
+                <span className="text-sm font-bold text-emerald-700 whitespace-nowrap">{formatCurrency(pcc.totalAmount || 0)}</span>
+              </label>
+            ))}
+          </div>
+          <div className="flex items-center justify-between gap-3 pt-2 border-t border-slate-100">
+            <div className="text-sm text-slate-600">Total / รวม: <span className="font-bold text-emerald-700">{formatCurrency(receiveTotal)}</span></div>
+            <div className="flex justify-end gap-3">
+              <Button type="button" variant="secondary" onClick={() => { setShowReceiveModal(false); setSelectedReceivePccIds([]); }}>Cancel / ยกเลิก</Button>
+              <Button type="button" variant="success" disabled={selectedReceivePccIds.length === 0} onClick={handleReceiveConfirm}>
+                <CheckCircle size={15} /> Confirm Receive / ยืนยันการรับ
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Modal>
 
       <div>
         <LineItemEditor items={items} onChange={setItems} />
@@ -472,25 +550,29 @@ function isValidHttpUrl(value) {
   }
 }
 
-function PccRow({ pcc, onAction, canEditPoLinks = false, getPoLinkValue, onPoLinkChange }) {
-  const { projects, getItemsByPcc, getPcrById, getProjectById } = useData();
+function getPccDisplayStatus(pcc) {
+  return pcc.receivedToPcr ? 'Receive' : pcc.status;
+}
+
+function PccRow({ pcc, onAction, canEditPoLinks = false, getPoLinkValue, onPoLinkChange, highlighted = false }) {
+  const { projects, getItemsByPcc, getProjectById } = useData();
   const [expanded, setExpanded] = useState(false);
   const users = useUsers();
   const items = getItemsByPcc(pcc.id);
-  const pcr = getPcrById(pcc.pcrId);
   const project = getProjectById(pcc.projectId);
 
   return (
-    <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
+    <div className={cn('border border-slate-200 rounded-md overflow-hidden bg-white', highlighted && 'notify-attention-border')}>
       {/* Header row */}
       <div
-        className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-slate-50 transition-colors"
+        className="flex items-center gap-2 px-2.5 py-1.5 cursor-pointer hover:bg-slate-50 transition-colors"
         onClick={() => setExpanded(!expanded)}
       >
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 min-w-0 whitespace-nowrap">
-            <span className="text-[13px] font-mono font-semibold text-blue-700">{pcc.id}</span>
-            <Badge status={pcc.status} />
+            <span className="text-[15px] font-bold text-blue-700 truncate">{project?.name || '-'}</span>
+            <span className="text-[13px] font-mono font-normal text-orange-500">{pcc.id}</span>
+            <Badge status={getPccDisplayStatus(pcc)} />
             {pcc.editStatus === 'REQUESTED' && (
               <span className="inline-flex items-center gap-1 bg-purple-100 text-purple-700 border border-purple-200 rounded px-2 py-0.5 text-xs font-semibold">
                 <RefreshCw size={12} /> Edit Requested
@@ -502,7 +584,7 @@ function PccRow({ pcc, onAction, canEditPoLinks = false, getPoLinkValue, onPoLin
               </span>
             )}
             <p className="text-[11px] text-slate-500 truncate whitespace-nowrap leading-tight min-w-0">
-              {project?.name} • PCR: {pcc.pcrId} • {formatDate(pcc.date)} • By: {getUserName(users, pcc.createdBy)}
+              PCR: <span className={pcc.status === PCC_STATUS.APPROVED ? 'font-semibold text-slate-700' : ''}>{pcc.pcrId}</span> • {formatDate(pcc.date)} • <span className={pcc.status === PCC_STATUS.APPROVED ? 'font-semibold text-slate-700' : ''}>By: {getUserName(users, pcc.createdBy)}</span>
               {pcc.relatedProjectId && (
                 <span className="ml-1 inline-flex items-center gap-1 bg-amber-100 text-amber-700 border border-amber-200 rounded px-1.5 text-[10px] font-semibold">
                   ใช้กับ: {pcc.relatedProjectId}
@@ -520,12 +602,12 @@ function PccRow({ pcc, onAction, canEditPoLinks = false, getPoLinkValue, onPoLin
       {expanded && (
         <div className="border-t border-slate-100 bg-slate-50/50">
           {/* Stepper */}
-          <div className="px-3.5 py-2 border-b border-slate-100 bg-white">
-            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Approval Workflow / ขั้นตอนการอนุมัติ</p>
+          <div className="px-3 py-1.5 border-b border-slate-100 bg-white">
+            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Approval Workflow / ขั้นตอนการอนุมัติ</p>
             <PccStepper status={pcc.status} />
           </div>
 
-          <div className="px-3.5 py-2.5 flex flex-col gap-2.5">
+          <div className="px-3 py-2 flex flex-col gap-2">
             {/* Rejection note */}
             {pcc.rejectNote && (
               <div className="bg-rose-50 border border-rose-200 rounded-lg p-2">
@@ -538,14 +620,21 @@ function PccRow({ pcc, onAction, canEditPoLinks = false, getPoLinkValue, onPoLin
             <div>
               <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Line Items / รายการค่าใช้จ่าย</p>
               <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-                <table className="w-full text-[13px]">
+                <table className="w-full table-fixed text-[12px] sm:text-[13px]">
+                  <colgroup>
+                    <col className="w-[28%]" />
+                    <col className="w-[24%]" />
+                    <col className="w-[22%]" />
+                    <col className="w-[8%]" />
+                    <col className="w-[18%]" />
+                  </colgroup>
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200">
-                      <th className="text-left px-3 py-1.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Description / รายละเอียด</th>
-                      <th className="text-left px-3 py-1.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Reason / เหตุผล</th>
-                      <th className="text-left px-3 py-1.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Attachments / เอกสาร</th>
-                      <th className="text-left px-3 py-1.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">PO Link</th>
-                      <th className="text-right px-3 py-1.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Amount / จำนวนเงิน</th>
+                      <th className="text-left px-2 sm:px-3 py-1.5 text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wider break-words leading-tight">Description / รายละเอียด</th>
+                      <th className="text-left px-2 sm:px-3 py-1.5 text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wider break-words leading-tight">Reason / เหตุผล</th>
+                      <th className="text-left px-2 sm:px-3 py-1.5 text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wider break-words leading-tight">Attachments / เอกสาร</th>
+                      <th className="text-left px-2 sm:px-3 py-1.5 text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wider break-words leading-tight">PO Link</th>
+                      <th className="text-right px-2 sm:px-3 py-1.5 text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-wider break-words leading-tight">Amount / จำนวนเงิน</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -553,13 +642,13 @@ function PccRow({ pcc, onAction, canEditPoLinks = false, getPoLinkValue, onPoLin
                       const atts = item.attachments || [];
                       return (
                         <tr key={item.id} className="border-b border-slate-100 last:border-0">
-                          <td className="px-3 py-1.5 text-slate-700 align-top leading-tight">{item.description}</td>
-                          <td className="px-3 py-1.5 text-slate-500 align-top leading-tight">{item.reason}</td>
-                          <td className="px-3 py-1.5 align-top">
+                          <td className="px-2 sm:px-3 py-1.5 text-slate-700 align-top leading-tight break-words">{item.description}</td>
+                          <td className="px-2 sm:px-3 py-1.5 text-slate-500 align-top leading-tight break-words">{item.reason}</td>
+                          <td className="px-2 sm:px-3 py-1.5 align-top min-w-0">
                             {atts.length === 0 ? (
                               <span className="text-slate-300 text-xs">—</span>
                             ) : (
-                              <div className="flex flex-col gap-0.5">
+                              <div className="flex min-w-0 flex-col gap-0.5">
                                 {atts.map((att, ai) => (
                                   <a
                                     key={ai}
@@ -575,38 +664,38 @@ function PccRow({ pcc, onAction, canEditPoLinks = false, getPoLinkValue, onPoLin
                               </div>
                             )}
                           </td>
-                          <td className="px-3 py-1.5 align-top">
+                          <td className="px-2 sm:px-3 py-1.5 align-top min-w-0">
                             {canEditPoLinks ? (
                               <input
                                 type="url"
                                 value={getPoLinkValue ? getPoLinkValue(item) : (item.poLink || '')}
                                 onChange={(e) => onPoLinkChange && onPoLinkChange(item, e.target.value)}
                                 placeholder="https://..."
-                                className="w-full min-w-[180px] max-w-[320px] px-2 py-1 text-[11px] leading-tight rounded border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                className="w-full min-w-0 max-w-[120px] px-1.5 sm:px-2 py-1 text-[11px] leading-tight rounded border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
                               />
                             ) : item.poLink ? (
                               <a
                                 href={item.poLink}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="block text-[11px] leading-tight text-blue-700 hover:text-blue-800 hover:underline truncate"
+                                className="inline-flex max-w-full items-center rounded border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] leading-tight text-blue-700 hover:bg-blue-100 hover:text-blue-800"
                                 title={item.poLink}
                               >
-                                {item.poLink}
+                                Open PO
                               </a>
                             ) : (
                               <span className="text-[11px] text-slate-300">—</span>
                             )}
                           </td>
-                          <td className="px-3 py-1.5 text-right font-medium text-slate-800 align-top">{formatCurrency(item.amount)}</td>
+                          <td className="px-2 sm:px-3 py-1.5 text-right font-medium text-slate-800 align-top whitespace-nowrap">{formatCurrency(item.amount)}</td>
                         </tr>
                       );
                     })}
                   </tbody>
                   <tfoot>
                     <tr className="bg-blue-50">
-                      <td colSpan={4} className="px-3 py-1.5 text-[13px] font-semibold text-blue-800">Total / รวม</td>
-                      <td className="px-3 py-1.5 text-right font-bold text-blue-800">{formatCurrency(pcc.totalAmount)}</td>
+                      <td colSpan={4} className="px-2 sm:px-3 py-1.5 text-[13px] font-semibold text-blue-800">Total / รวม</td>
+                      <td className="px-2 sm:px-3 py-1.5 text-right font-bold text-blue-800 whitespace-nowrap">{formatCurrency(pcc.totalAmount)}</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -636,7 +725,7 @@ function PccRow({ pcc, onAction, canEditPoLinks = false, getPoLinkValue, onPoLin
             </div>
 
             {/* Action buttons */}
-            <div className="flex flex-wrap gap-1.5 pt-2 border-t border-slate-200">
+            <div className="flex flex-wrap gap-1 pt-1.5 border-t border-slate-200">
               {onAction(pcc)}
             </div>
           </div>
@@ -652,9 +741,11 @@ function PccRow({ pcc, onAction, canEditPoLinks = false, getPoLinkValue, onPoLin
 const BROAD_VIEW_ROLES = ['MasterAdmin', 'MD', 'GM', 'AccountPay', 'ppeAdmin', 'ppeManager', 'ppeLeader', 'Requestors', 'Eng', 'SenEng', 'Arch', 'SenArch'];
 
 export function PccPage() {
+  const [searchParams] = useSearchParams();
+  const notifyId = searchParams.get('notifyId') || '';
   const { currentUser, hasRole, userProfile } = useAuth();
   const {
-    projects, pccs, pcrs, getItemsByPcc,
+    projects, pccs, getItemsByPcc,
     pmVerifyPcc, apVerifyPcc, apRejectPcc, gmApprovePcc, gmRejectPcc,
     createPcc, deletePcc, requestEditPcc, approveEditPcc, saveEditPcc
   } = useData();
@@ -689,15 +780,44 @@ export function PccPage() {
       }
     }
     if (projectFilter) list = list.filter((p) => p.projectId === projectFilter);
-    if (statusFilter) list = list.filter((p) => p.status === statusFilter);
+    if (statusFilter) list = list.filter((p) => getPccDisplayStatus(p) === statusFilter);
     return list.slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  }, [pccs, currentUser, projects, projectFilter, statusFilter, isBroadView]);
+  }, [pccs, currentUser, projects, projectFilter, statusFilter, isBroadView, hasRole]);
 
-  const allStatuses = [...new Set(pccs.map((p) => p.status))];
+  const allStatuses = [...new Set(pccs.map((p) => getPccDisplayStatus(p)))];
+  const activePccs = visiblePccs.filter((p) => !p.receivedToPcr);
+  const doneProcessPccs = visiblePccs.filter((p) => p.receivedToPcr);
 
   const handleCreate = (data, items) => {
     createPcc(data, items, currentUser.id);
     setShowCreate(false);
+  };
+
+  const canBlinkPcc = (pcc) => {
+    const isEditing = pcc.status === PCC_STATUS.EDITING;
+    const isEditRequested = pcc.editStatus === 'REQUESTED';
+
+    const pendingStepAction =
+      (hasRole('PM') && pcc.status === PCC_STATUS.PENDING_PM && !isEditing) ||
+      (hasRole('AccountPay') && pcc.status === PCC_STATUS.PENDING_AP && !isEditing) ||
+      (hasRole('GM', 'MD') && pcc.status === PCC_STATUS.PENDING_GM && !isEditing);
+
+    const editApproveAction =
+      isEditRequested &&
+      (
+        (pcc.status === PCC_STATUS.PENDING_PM && hasRole('PM')) ||
+        (pcc.status === PCC_STATUS.PENDING_AP && hasRole('AccountPay')) ||
+        (pcc.status === PCC_STATUS.PENDING_GM && hasRole('GM', 'MD'))
+      );
+
+    const ownerFollowupAction =
+      hasRole('SiteAdmin') &&
+      pcc.createdBy === currentUser?.id &&
+      (pcc.status === PCC_STATUS.AP_REJECTED || pcc.status === PCC_STATUS.GM_REJECTED);
+
+    const editAction = isEditing && pcc.editRequestedBy === currentUser?.id;
+
+    return pendingStepAction || editApproveAction || ownerFollowupAction || editAction;
   };
 
   const renderActions = (pcc) => {
@@ -858,23 +978,54 @@ export function PccPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="flex flex-col gap-3">
-          {visiblePccs.map((pcc) => (
-            <PccRow
-              key={pcc.id}
-              pcc={pcc}
-              onAction={renderActions}
-              canEditPoLinks={hasRole('AccountPay') && pcc.status === PCC_STATUS.PENDING_AP && pcc.status !== PCC_STATUS.EDITING}
-              getPoLinkValue={(item) => {
-                const key = `${pcc.id}::${item.id}`;
-                return poLinksByItem[key] ?? item.poLink ?? '';
-              }}
-              onPoLinkChange={(item, value) => {
-                const key = `${pcc.id}::${item.id}`;
-                setPoLinksByItem((prev) => ({ ...prev, [key]: value }));
-              }}
-            />
-          ))}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-700">In Process / กำลังดำเนินการ</h3>
+            <span className="text-xs text-slate-500">{activePccs.length} รายการ</span>
+          </div>
+          <div className="flex flex-col gap-1">
+            {activePccs.map((pcc) => (
+              <PccRow
+                key={pcc.id}
+                pcc={pcc}
+                onAction={renderActions}
+                canEditPoLinks={hasRole('AccountPay') && pcc.status === PCC_STATUS.PENDING_AP && pcc.status !== PCC_STATUS.EDITING}
+                highlighted={notifyId === pcc.id || canBlinkPcc(pcc)}
+                getPoLinkValue={(item) => {
+                  const key = `${pcc.id}::${item.id}`;
+                  return poLinksByItem[key] ?? item.poLink ?? '';
+                }}
+                onPoLinkChange={(item, value) => {
+                  const key = `${pcc.id}::${item.id}`;
+                  setPoLinksByItem((prev) => ({ ...prev, [key]: value }));
+                }}
+              />
+            ))}
+          </div>
+
+          <div className="mt-1 rounded-lg border border-cyan-200 bg-cyan-50/40 p-2">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-sm font-bold text-cyan-800">Done Process</h3>
+              <span className="text-xs text-cyan-700">{doneProcessPccs.length} รายการ</span>
+            </div>
+            {doneProcessPccs.length === 0 ? (
+              <p className="text-sm text-slate-500 py-1">No completed receive items / ยังไม่มีรายการที่ Receive แล้ว</p>
+            ) : (
+              <div className="flex flex-col gap-1">
+                {doneProcessPccs.map((pcc) => (
+                  <PccRow
+                    key={pcc.id}
+                    pcc={pcc}
+                    onAction={renderActions}
+                    canEditPoLinks={false}
+                    highlighted={notifyId === pcc.id || canBlinkPcc(pcc)}
+                    getPoLinkValue={(item) => item.poLink ?? ''}
+                    onPoLinkChange={() => {}}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

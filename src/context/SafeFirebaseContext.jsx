@@ -162,7 +162,8 @@ export function DataProvider({ children }) {
           (p) =>
             p.pcrId === pcrId &&
             p.status !== PCC_STATUS.AP_REJECTED &&
-            p.status !== PCC_STATUS.GM_REJECTED
+            p.status !== PCC_STATUS.GM_REJECTED &&
+            !p.receivedToPcr
         )
         .reduce((sum, p) => sum + p.totalAmount, 0);
       return pcr.amount - consumed;
@@ -173,7 +174,12 @@ export function DataProvider({ children }) {
   const getPcrApprovedSpend = useCallback(
     (pcrId) =>
       pccs
-        .filter((p) => p.pcrId === pcrId && p.status === PCC_STATUS.APPROVED)
+        .filter(
+          (p) =>
+            p.pcrId === pcrId &&
+            p.status === PCC_STATUS.APPROVED &&
+            !p.receivedToPcr
+        )
         .reduce((sum, p) => sum + p.totalAmount, 0),
     [pccs]
   );
@@ -497,6 +503,16 @@ export function DataProvider({ children }) {
     [updatePccStatus]
   );
 
+  const receivePccToPcr = useCallback(
+    (id, userId) =>
+      updatePccStatus(id, {
+        receivedToPcr: true,
+        receivedBy: userId,
+        receivedAt: new Date().toISOString().slice(0, 10),
+      }),
+    [updatePccStatus]
+  );
+
   const resubmitPcc = useCallback(
     async (id, items) => {
       const totalAmount = items.reduce((s, i) => s + Number(i.amount), 0);
@@ -721,6 +737,7 @@ export function DataProvider({ children }) {
           apRejectPcc,
           gmApprovePcc,
           gmRejectPcc,
+          receivePccToPcr,
           resubmitPcc,
           requestEditPcc,
           approveEditPcc,

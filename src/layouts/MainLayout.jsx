@@ -74,10 +74,11 @@ function RoleColor(role) {
 
 export function MainLayout({ children }) {
   const { currentUser, userProfile, firebaseUser, hasRole, refreshProfile } = useAuth();
-  const { pcrs, pccs } = useData();
+  const { projects, pcrs, pccs } = useData();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [notificationOpen, setNotificationOpen] = useState(false);
   const navigate = useNavigate();
 
   const visibleNav = useMemo(
@@ -91,25 +92,126 @@ export function MainLayout({ children }) {
   const displayRoles = userProfile?.roles?.length ? userProfile.roles.join(', ') : '';
   const photoUrl = userProfile?.photoURL || firebaseUser?.photoURL;
 
-  // Notification count
-  const pendingActions = (() => {
-    let count = 0;
-    if (currentUser?.role === 'GM' || currentUser?.role === 'MD') {
-      count += pcrs.filter((p) => p.status === 'Pending GM').length;
-      count += pccs.filter((p) => p.status === 'Pending GM').length;
+  const myProjectIds = useMemo(() => {
+    if (!currentUser?.id) return [];
+    return projects
+      .filter((p) => p.pmId === currentUser.id || p.cmId === currentUser.id)
+      .map((p) => p.id);
+  }, [projects, currentUser?.id]);
+
+  const notificationItems = useMemo(() => {
+    const items = [];
+    const receivableByPcrId = new Set(
+      pccs
+        .filter((p) => p.status === 'Approved' && !!p.approvedByGM && !p.receivedToPcr)
+        .map((p) => p.pcrId)
+    );
+
+    if (hasRole('GM', 'MD')) {
+      pcrs
+        .filter((p) => p.status === 'Pending GM')
+        .forEach((p) => items.push({
+          key: `pcr-gm-${p.id}`,
+          type: 'PCR',
+          id: p.id,
+          title: `PCR รออนุมัติ GM/MD`,
+          detail: `${p.id} • ${p.projectId || '-'}`,
+          path: `/pcr?notifyId=${encodeURIComponent(p.id)}`,
+        }));
+
+      pccs
+        .filter((p) => p.status === 'Pending GM')
+        .forEach((p) => items.push({
+          key: `pcc-gm-${p.id}`,
+          type: 'PCC',
+          id: p.id,
+          title: `PCC รออนุมัติ GM/MD`,
+          detail: `${p.id} • ${p.projectId || '-'}`,
+          path: `/pcc?notifyId=${encodeURIComponent(p.id)}`,
+        }));
     }
-    if (currentUser?.role === 'PM') {
-      count += pccs.filter((p) => p.status === 'Pending PM').length;
+
+    if (hasRole('PM')) {
+      pccs
+        .filter((p) => p.status === 'Pending PM' && myProjectIds.includes(p.projectId))
+        .forEach((p) => items.push({
+          key: `pcc-pm-${p.id}`,
+          type: 'PCC',
+          id: p.id,
+          title: `PCC รอ PM ตรวจสอบ`,
+          detail: `${p.id} • ${p.projectId || '-'}`,
+          path: `/pcc?notifyId=${encodeURIComponent(p.id)}`,
+        }));
     }
-    if (currentUser?.role === 'AccountPay') {
-      count += pcrs.filter((p) => p.status === 'Approved').length;
-      count += pccs.filter((p) => p.status === 'Pending AP').length;
+
+    pcrs
+      .filter(
+        (p) =>
+          p.status === 'Acknowledged by AP' &&
+          receivableByPcrId.has(p.id) &&
+          (p.createdBy === currentUser?.id || hasRole('MasterAdmin'))
+      )
+      .forEach((p) => items.push({
+        key: `pcr-receive-${p.id}`,
+        type: 'PCR',
+        id: p.id,
+        title: `PCR รอ Receive`,
+        detail: `${p.id} • ${p.projectId || '-'}`,
+        path: `/pcr?notifyId=${encodeURIComponent(p.id)}`,
+      }));
+
+    if (hasRole('AccountPay')) {
+      pcrs
+        .filter((p) => p.status === 'Approved')
+        .forEach((p) => items.push({
+          key: `pcr-ap-ack-${p.id}`,
+          type: 'PCR',
+          id: p.id,
+          title: `PCR รอ AP รับทราบโอนเงิน`,
+          detail: `${p.id} • ${p.projectId || '-'}`,
+          path: `/pcr?notifyId=${encodeURIComponent(p.id)}`,
+        }));
+
+      pcrs
+        .filter((p) => p.status === 'Closure Requested')
+        .forEach((p) => items.push({
+          key: `pcr-ap-receive-${p.id}`,
+          type: 'PCR',
+          id: p.id,
+          title: `PCR รอ AP ยืนยันรับเงินคืน`,
+          detail: `${p.id} • ${p.projectId || '-'}`,
+          path: `/pcr?notifyId=${encodeURIComponent(p.id)}`,
+        }));
+
+      pccs
+        .filter((p) => p.status === 'Pending AP')
+        .forEach((p) => items.push({
+          key: `pcc-ap-${p.id}`,
+          type: 'PCC',
+          id: p.id,
+          title: `PCC รอ AP ตรวจสอบ`,
+          detail: `${p.id} • ${p.projectId || '-'}`,
+          path: `/pcc?notifyId=${encodeURIComponent(p.id)}`,
+        }));
     }
-    if (currentUser?.role === 'SiteAdmin') {
-      count += pccs.filter((p) => p.status === 'AP Rejected' && p.createdBy === currentUser.id).length;
+
+    if (hasRole('SiteAdmin')) {
+      pccs
+        .filter((p) => p.status === 'AP Rejected' && p.createdBy === currentUser?.id)
+        .forEach((p) => items.push({
+          key: `pcc-site-rejected-${p.id}`,
+          type: 'PCC',
+          id: p.id,
+          title: `PCC ถูกปฏิเสธ รอแก้ไข`,
+          detail: `${p.id} • ${p.projectId || '-'}`,
+          path: `/pcc?notifyId=${encodeURIComponent(p.id)}`,
+        }));
     }
-    return count;
-  })();
+
+    return items;
+  }, [pcrs, pccs, hasRole, myProjectIds, currentUser?.id]);
+
+  const pendingActions = notificationItems.length;
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
@@ -229,7 +331,13 @@ export function MainLayout({ children }) {
           <div className="flex items-center gap-3">
             {/* Notification bell */}
             <div className="relative">
-              <button className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 transition-colors cursor-pointer">
+              <button
+                onClick={() => {
+                  setNotificationOpen((v) => !v);
+                  setUserDropdownOpen(false);
+                }}
+                className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
                 <Bell size={18} />
               </button>
               {pendingActions > 0 && (
@@ -237,12 +345,50 @@ export function MainLayout({ children }) {
                   {pendingActions}
                 </span>
               )}
+              {notificationOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setNotificationOpen(false)} />
+                  <div className="absolute right-0 top-full mt-2 w-[360px] max-w-[90vw] bg-white rounded-xl border border-slate-200 shadow-xl z-20 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
+                      <p className="text-sm font-semibold text-slate-800">Notifications / แจ้งเตือน</p>
+                      <p className="text-xs text-slate-500">รายการรอดำเนินการทั้งหมด {pendingActions} รายการ</p>
+                    </div>
+                    {notificationItems.length === 0 ? (
+                      <div className="px-4 py-6 text-sm text-slate-500 text-center">
+                        ไม่มีรายการรอดำเนินการ
+                      </div>
+                    ) : (
+                      <div className="max-h-[360px] overflow-y-auto">
+                        {notificationItems.map((item) => (
+                          <button
+                            key={item.key}
+                            onClick={() => {
+                              setNotificationOpen(false);
+                              navigate(item.path);
+                            }}
+                            className="w-full text-left px-4 py-3 border-b border-slate-100 last:border-b-0 hover:bg-rose-50 transition-colors cursor-pointer"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-sm font-semibold text-slate-800">{item.title}</p>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">{item.type}</span>
+                            </div>
+                            <p className="text-xs text-slate-500 mt-0.5">{item.detail}</p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
 
             {/* User switcher */}
             <div className="relative">
               <button
-                onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                onClick={() => {
+                  setUserDropdownOpen(!userDropdownOpen);
+                  setNotificationOpen(false);
+                }}
                 className="flex items-center gap-2.5 pl-3 pr-2 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer"
               >
                 {photoUrl ? (

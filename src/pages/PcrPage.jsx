@@ -2,17 +2,17 @@ import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Plus, CheckCircle, XCircle, DollarSign, FileText,
-  AlertTriangle, ChevronDown, ChevronUp, RefreshCw, Lock, Trash2
+  AlertTriangle, ChevronDown, ChevronUp, RefreshCw, Lock, Trash2, Receipt
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/SafeFirebaseContext';
-import { PCR_STATUS } from '../data/constants.js';
+import { PCR_STATUS, PCC_STATUS } from '../data/constants.js';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { Input, Textarea, Select } from '../components/ui/Input';
-import { formatDate, formatCurrency, isOverdue } from '../lib/utils';
+import { formatDate, formatCurrency, formatNumberInput, parseNumberInput, isOverdue } from '../lib/utils';
 import { cn } from '../lib/utils';
 import { onSnapshot, query, orderBy } from 'firebase/firestore';
 import { usersColRef } from '../auth/firestorePaths';
@@ -20,13 +20,16 @@ import { usersColRef } from '../auth/firestorePaths';
 const emptyPcrForm = { projectId: '', amount: '', dueDate: '', reason: '' };
 
 function PcrForm({ initial, projects, onSubmit, onClose, title }) {
-  const [form, setForm] = useState(initial || emptyPcrForm);
+  const [form, setForm] = useState(
+    initial ? { ...initial, amount: formatNumberInput(initial.amount) } : emptyPcrForm
+  );
   const [errors, setErrors] = useState({});
 
   const validate = () => {
     const e = {};
     if (!form.projectId) e.projectId = 'Project is required';
-    if (!form.amount || Number(form.amount) <= 0) e.amount = 'Valid amount required';
+    const parsedAmount = parseNumberInput(form.amount);
+    if (!form.amount || parsedAmount <= 0) e.amount = 'Valid amount required';
     if (!form.dueDate) e.dueDate = 'Due date is required';
     if (!form.reason.trim()) e.reason = 'Reason is required';
     return e;
@@ -36,10 +39,11 @@ function PcrForm({ initial, projects, onSubmit, onClose, title }) {
     e.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length) { setErrors(errs); return; }
-    onSubmit({ ...form, amount: Number(form.amount), date: new Date().toISOString().slice(0, 10) });
+    onSubmit({ ...form, amount: parseNumberInput(form.amount), date: new Date().toISOString().slice(0, 10) });
   };
 
-  const set = (k) => (ev) => setForm((f) => ({ ...f, [k]: ev.target.value }));
+  const set = (k) => (ev) =>
+    setForm((f) => ({ ...f, [k]: k === 'amount' ? formatNumberInput(ev.target.value) : ev.target.value }));
 
   return (
     <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4">
@@ -48,7 +52,7 @@ function PcrForm({ initial, projects, onSubmit, onClose, title }) {
         {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
       </Select>
       <div className="grid grid-cols-2 gap-4">
-        <Input label="Amount (THB) / จำนวนเงิน (บาท)" id="amount" type="number" required min="1" step="0.01" value={form.amount} onChange={set('amount')} error={errors.amount} placeholder="0.00" />
+        <Input label="Amount (THB) / จำนวนเงิน (บาท)" id="amount" type="text" inputMode="decimal" required value={form.amount} onChange={set('amount')} error={errors.amount} placeholder="0.00" />
         <Input label="Due Date / วันครบกำหนด" id="dueDate" type="date" required value={form.dueDate} onChange={set('dueDate')} error={errors.dueDate} />
       </div>
       <Textarea label="Reason / Justification / เหตุผลและความจำเป็น" id="reason" required rows={4} value={form.reason} onChange={set('reason')} error={errors.reason} placeholder="Describe the purpose of this petty cash request... / ระบุวัตถุประสงค์ของการขอเงินสดย่อย" />
@@ -134,8 +138,7 @@ function getUserName(users, id) {
   return u ? [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email : '-';
 }
 
-function PcrRow({ pcr, project, onAction }) {
-  const { currentUser, hasRole } = useAuth();
+function PcrRow({ pcr, project, onAction, onOpenHistory, highlighted = false, highlightClass = 'notify-attention-border' }) {
   const { getPcrRemainingBalance, getPcrApprovedSpend } = useData();
   const [expanded, setExpanded] = useState(false);
   const users = useUsers();
@@ -146,15 +149,22 @@ function PcrRow({ pcr, project, onAction }) {
   const overdue = isOverdue(pcr.dueDate) && pcr.status === PCR_STATUS.ACKNOWLEDGED;
 
   return (
-    <div className={cn('border rounded-lg overflow-hidden transition-all', overdue ? 'border-amber-300 bg-amber-50/30' : 'border-slate-200 bg-white')}>
+    <div
+      className={cn(
+        'border rounded-md overflow-hidden transition-all',
+        overdue ? 'border-amber-300 bg-amber-50/30' : 'border-slate-200 bg-white',
+        highlighted && highlightClass
+      )}
+    >
       {/* Row header */}
       <div
-        className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-slate-50 transition-colors"
+        className="flex items-center gap-2 px-2.5 py-1 cursor-pointer hover:bg-slate-50 transition-colors min-h-[36px]"
         onClick={() => setExpanded(!expanded)}
       >
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 min-w-0 whitespace-nowrap">
-            <span className="text-[13px] font-mono font-semibold text-blue-700">{pcr.id}</span>
+            <span className="text-[15px] font-bold text-blue-700 truncate">{project?.name || '-'}</span>
+            <span className="text-[13px] font-mono font-normal text-orange-500">{pcr.id}</span>
             <Badge status={pcr.status} />
             {overdue && (
               <span className="flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-100 border border-amber-200 rounded-full px-2 py-0.5">
@@ -162,7 +172,7 @@ function PcrRow({ pcr, project, onAction }) {
               </span>
             )}
             <p className="text-[11px] text-slate-500 truncate whitespace-nowrap leading-tight min-w-0">
-              {project?.name} • Created {formatDate(pcr.date)} • Due {formatDate(pcr.dueDate)}
+              Created {formatDate(pcr.date)} • Due {formatDate(pcr.dueDate)}
             </p>
           </div>
         </div>
@@ -187,12 +197,22 @@ function PcrRow({ pcr, project, onAction }) {
 
       {/* Expanded details */}
       {expanded && (
-        <div className="border-t border-slate-100 px-5 py-4 bg-slate-50/50">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex flex-col gap-3">
+        <div className="border-t border-slate-100 px-3 py-2 bg-slate-50/50">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div className="flex flex-col gap-2">
               <div>
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Reason / เหตุผล</p>
                 <p className="text-sm text-slate-700 bg-white rounded-lg px-3 py-2 border border-slate-100">{pcr.reason}</p>
+              </div>
+              <div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onOpenHistory(pcr)}
+                >
+                  <Receipt size={14} /> History
+                </Button>
               </div>
               {pcr.rejectNote && (
                 <div className="bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
@@ -214,7 +234,7 @@ function PcrRow({ pcr, project, onAction }) {
               )}
             </div>
 
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2">
               <div>
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Fund Utilization / การใช้งบประมาณ</p>
                 <div className="bg-white rounded-lg px-3 py-3 border border-slate-100">
@@ -247,7 +267,7 @@ function PcrRow({ pcr, project, onAction }) {
           </div>
 
           {/* Action buttons */}
-          <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-slate-200">
+          <div className="flex flex-wrap gap-1 mt-2 pt-2 border-t border-slate-200">
             {onAction(pcr)}
           </div>
         </div>
@@ -261,18 +281,22 @@ const BROAD_VIEW_ROLES = ['MasterAdmin', 'MD', 'GM', 'AccountPay', 'ppeAdmin', '
 export function PcrPage() {
   const { currentUser, hasRole, userProfile } = useAuth();
   const {
-    projects, pcrs, createPcr, approvePcr, rejectPcr, resubmitPcr,
+    projects, pcrs, pccs, createPcr, approvePcr, rejectPcr, resubmitPcr,
     acknowledgePcr, requestClosePcr, confirmClosurePcr, officiallyClosePcr,
-    getPcrApprovedSpend, deletePcr
+    getPcrApprovedSpend, receivePccToPcr, deletePcr
   } = useData();
   const [searchParams] = useSearchParams();
   const filterProject = searchParams.get('project');
+  const notifyId = searchParams.get('notifyId') || '';
 
   const [showCreate, setShowCreate] = useState(false);
   const [editPcr, setEditPcr] = useState(null);
   const [rejectTarget, setRejectTarget] = useState(null);
   const [closureTarget, setClosureTarget] = useState(null);
   const [confirmReceiptTarget, setConfirmReceiptTarget] = useState(null);
+  const [receiveTarget, setReceiveTarget] = useState(null);
+  const [historyTarget, setHistoryTarget] = useState(null);
+  const [selectedReceivePccIds, setSelectedReceivePccIds] = useState([]);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [projectFilter, setProjectFilter] = useState(filterProject || '');
   const [statusFilter, setStatusFilter] = useState('');
@@ -312,6 +336,63 @@ export function PcrPage() {
 
   const getProject = (id) => projects.find((p) => p.id === id);
 
+  const receivablePccs = useMemo(() => {
+    if (!receiveTarget) return [];
+    return pccs.filter(
+      (p) =>
+        p.pcrId === receiveTarget.id &&
+        p.status === PCC_STATUS.APPROVED &&
+        !!p.approvedByGM &&
+        !p.receivedToPcr
+    );
+  }, [pccs, receiveTarget]);
+
+  const receiveTotal = receivablePccs
+    .filter((p) => selectedReceivePccIds.includes(p.id))
+    .reduce((sum, p) => sum + Number(p.totalAmount || 0), 0);
+
+  const pcrHistory = useMemo(() => {
+    if (!historyTarget) return { receiveEntries: [], claimedEntries: [] };
+    const targetId = historyTarget.id;
+    const relatedPccs = pccs.filter((p) => p.pcrId === targetId);
+
+    const toDateValue = (dateString) => {
+      if (!dateString) return 0;
+      const parsed = new Date(dateString).getTime();
+      return Number.isNaN(parsed) ? 0 : parsed;
+    };
+
+    const claimedEntries = relatedPccs
+      .filter((p) => p.status === PCC_STATUS.APPROVED)
+      .map((p) => ({
+        id: p.id,
+        amount: Number(p.totalAmount || 0),
+        actionDate: p.approvedByGMAt || p.verifiedByAPAt || p.date || '',
+      }))
+      .sort((a, b) => toDateValue(b.actionDate) - toDateValue(a.actionDate));
+
+    const receiveEntries = relatedPccs
+      .filter((p) => p.receivedToPcr)
+      .map((p) => ({
+        id: p.id,
+        amount: Number(p.totalAmount || 0),
+        actionDate: p.receivedAt || p.date || '',
+      }))
+      .sort((a, b) => toDateValue(b.actionDate) - toDateValue(a.actionDate));
+
+    // Initial receive: base PCR fund when the PCR is created.
+    if (Number(historyTarget.amount || 0) > 0) {
+      receiveEntries.push({
+        id: historyTarget.id,
+        amount: Number(historyTarget.amount || 0),
+        actionDate: historyTarget.date || '',
+      });
+      receiveEntries.sort((a, b) => toDateValue(b.actionDate) - toDateValue(a.actionDate));
+    }
+
+    return { receiveEntries, claimedEntries };
+  }, [historyTarget, pccs]);
+
   const handleCreate = (form) => {
     createPcr(form, currentUser.id);
     setShowCreate(false);
@@ -326,6 +407,14 @@ export function PcrPage() {
     const actions = [];
     const approvedSpend = getPcrApprovedSpend(pcr.id);
     const amountToReturn = pcr.amount - approvedSpend;
+    const isReceiveOwner = pcr.createdBy === currentUser.id || userProfile?.roles?.includes('MasterAdmin');
+    const hasReceivablePcc = pccs.some(
+      (p) =>
+        p.pcrId === pcr.id &&
+        p.status === PCC_STATUS.APPROVED &&
+        !!p.approvedByGM &&
+        !p.receivedToPcr
+    );
 
     if (hasRole('GM', 'MD') && pcr.status === PCR_STATUS.PENDING_GM) {
       actions.push(
@@ -362,6 +451,14 @@ export function PcrPage() {
       );
     }
 
+    if (pcr.status === PCR_STATUS.ACKNOWLEDGED && isReceiveOwner && hasReceivablePcc) {
+      actions.push(
+        <Button key="receive-pcc" variant="success" size="sm" className="ml-auto" onClick={() => { setReceiveTarget(pcr); setSelectedReceivePccIds([]); }}>
+          <Receipt size={14} /> Receive / รีซีฟ
+        </Button>
+      );
+    }
+
     if (hasRole('AccountPay') && pcr.status === PCR_STATUS.CLOSURE_REQUESTED) {
       actions.push(
         <Button key="confirmreceipt" variant="success" size="sm" onClick={() => setConfirmReceiptTarget(pcr)}>
@@ -390,6 +487,41 @@ export function PcrPage() {
   };
 
   const allStatuses = [...new Set(pcrs.map((p) => p.status))];
+
+  const shouldBlinkPcr = (pcr) => {
+    const approvedSpend = getPcrApprovedSpend(pcr.id);
+    const amountToReturn = pcr.amount - approvedSpend;
+    const isReceiveOwner = pcr.createdBy === currentUser.id || userProfile?.roles?.includes('MasterAdmin');
+    const hasReceivablePcc = pccs.some(
+      (p) =>
+        p.pcrId === pcr.id &&
+        p.status === PCC_STATUS.APPROVED &&
+        !!p.approvedByGM &&
+        !p.receivedToPcr
+    );
+
+    return (
+      (hasRole('GM', 'MD') && pcr.status === PCR_STATUS.PENDING_GM) ||
+      (hasRole('AccountPay') && pcr.status === PCR_STATUS.APPROVED) ||
+      (hasRole('PM') && pcr.status === PCR_STATUS.GM_REJECTED) ||
+      (hasRole('PM') && pcr.status === PCR_STATUS.ACKNOWLEDGED) ||
+      (pcr.status === PCR_STATUS.ACKNOWLEDGED && isReceiveOwner && hasReceivablePcc) ||
+      (hasRole('AccountPay') && pcr.status === PCR_STATUS.CLOSURE_REQUESTED && amountToReturn >= 0) ||
+      (hasRole('GM', 'MD') && pcr.status === PCR_STATUS.CLOSURE_CONFIRMED)
+    );
+  };
+
+  const isReceivePending = (pcr) => {
+    const isReceiveOwner = pcr.createdBy === currentUser.id || userProfile?.roles?.includes('MasterAdmin');
+    const hasReceivablePcc = pccs.some(
+      (p) =>
+        p.pcrId === pcr.id &&
+        p.status === PCC_STATUS.APPROVED &&
+        !!p.approvedByGM &&
+        !p.receivedToPcr
+    );
+    return pcr.status === PCR_STATUS.ACKNOWLEDGED && isReceiveOwner && hasReceivablePcc;
+  };
 
   return (
     <div className="flex flex-col gap-3">
@@ -436,13 +568,16 @@ export function PcrPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1">
           {visiblePcrs.map((pcr) => (
             <PcrRow
               key={pcr.id}
               pcr={pcr}
               project={getProject(pcr.projectId)}
               onAction={renderActions}
+              onOpenHistory={setHistoryTarget}
+              highlighted={notifyId === pcr.id || shouldBlinkPcr(pcr)}
+              highlightClass={isReceivePending(pcr) ? 'notify-attention-border-green' : 'notify-attention-border'}
             />
           ))}
         </div>
@@ -492,6 +627,102 @@ export function PcrPage() {
         )}
       </Modal>
 
+      <Modal open={!!receiveTarget} onClose={() => { setReceiveTarget(null); setSelectedReceivePccIds([]); }} title="Receive PCC / รับยอด PCC" size="md">
+        <div className="p-6 flex flex-col gap-4">
+          <div className="flex flex-col gap-2 max-h-[360px] overflow-y-auto pr-1">
+            {receivablePccs.map((pcc) => (
+              <label key={pcc.id} className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-3 cursor-pointer hover:bg-slate-50">
+                <input
+                  type="checkbox"
+                  className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                  checked={selectedReceivePccIds.includes(pcc.id)}
+                  onChange={(e) => setSelectedReceivePccIds((ids) => e.target.checked ? [...ids, pcc.id] : ids.filter((id) => id !== pcc.id))}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-mono text-sm font-semibold text-blue-700 truncate">{pcc.id}</span>
+                    <span className="text-sm font-bold text-emerald-700 shrink-0">{formatCurrency(pcc.totalAmount || 0)}</span>
+                  </div>
+                  <p className="text-xs text-slate-500 truncate">
+                    {formatDate(pcc.date)} • GM Approve • {pcc.description || '-'}
+                  </p>
+                </div>
+              </label>
+            ))}
+          </div>
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 flex justify-between text-sm">
+            <span className="font-semibold text-emerald-800">Receive Total / รวมยอดรับ</span>
+            <span className="font-bold text-emerald-800">{formatCurrency(receiveTotal)}</span>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button variant="secondary" onClick={() => { setReceiveTarget(null); setSelectedReceivePccIds([]); }}>Cancel / ยกเลิก</Button>
+            <Button
+              variant="success"
+              disabled={selectedReceivePccIds.length === 0}
+              onClick={async () => {
+                await Promise.all(selectedReceivePccIds.map((id) => receivePccToPcr(id, currentUser.id)));
+                setReceiveTarget(null);
+                setSelectedReceivePccIds([]);
+              }}
+            >
+              <Receipt size={15} /> Confirm Receive / ยืนยันการรับ
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={!!historyTarget} onClose={() => setHistoryTarget(null)} title={`PCR History / ประวัติ PCR: ${historyTarget?.id || ''}`} size="lg">
+        <div className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50/40">
+              <div className="px-3 py-2 border-b border-emerald-200 flex items-center justify-between">
+                <p className="text-sm font-bold text-emerald-800">Receive / รับเข้า</p>
+                <span className="text-xs text-emerald-700">{pcrHistory.receiveEntries.length} รายการ</span>
+              </div>
+              <div className="max-h-[220px] overflow-y-auto">
+                {pcrHistory.receiveEntries.length === 0 ? (
+                  <p className="px-3 py-3 text-sm text-slate-500">No receive history</p>
+                ) : (
+                  pcrHistory.receiveEntries.map((entry) => (
+                    <div key={`receive-${entry.id}-${entry.actionDate}`} className="px-3 py-2 border-b border-emerald-100 last:border-b-0">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="font-mono text-sm font-semibold text-emerald-900 truncate">
+                          {entry.id} <span className="font-normal text-slate-500">• {formatDate(entry.actionDate)}</span>
+                        </span>
+                        <span className="text-sm font-bold text-emerald-700 whitespace-nowrap">{formatCurrency(entry.amount)}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-blue-200 bg-blue-50/40">
+              <div className="px-3 py-2 border-b border-blue-200 flex items-center justify-between">
+                <p className="text-sm font-bold text-blue-800">Claimed / เบิกจ่าย</p>
+                <span className="text-xs text-blue-700">{pcrHistory.claimedEntries.length} รายการ</span>
+              </div>
+              <div className="max-h-[220px] overflow-y-auto">
+                {pcrHistory.claimedEntries.length === 0 ? (
+                  <p className="px-3 py-3 text-sm text-slate-500">No claim history</p>
+                ) : (
+                  pcrHistory.claimedEntries.map((entry) => (
+                    <div key={`claimed-${entry.id}-${entry.actionDate}`} className="px-3 py-2 border-b border-blue-100 last:border-b-0">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="font-mono text-sm font-semibold text-blue-900 truncate">
+                          {entry.id} <span className="font-normal text-slate-500">• {formatDate(entry.actionDate)}</span>
+                        </span>
+                        <span className="text-sm font-bold text-blue-700 whitespace-nowrap">{formatCurrency(entry.amount)}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </Modal>
+
       {/* Delete Confirmation Modal */}
       <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Confirm Delete / ยืนยันการลบ" size="sm">
         <div className="p-6 flex flex-col gap-4">
@@ -524,3 +755,8 @@ export function PcrPage() {
     </div>
   );
 }
+
+
+
+
+

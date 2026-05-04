@@ -316,6 +316,7 @@ export function HelpPage() {
                 { label: 'Pending AP',  color: 'orange' },
                 { label: 'Pending GM',  color: 'blue' },
                 { label: 'Approved',    color: 'emerald' },
+                { label: 'Receive',     color: 'purple' },
               ]} />
               <div className="mt-2 flex flex-col gap-1">
                 <div className="flex items-center gap-2">
@@ -361,6 +362,12 @@ export function HelpPage() {
                 by="GM / MD" byTh="ผู้จัดการใหญ่/กรรมการผู้จัดการ" byColor="blue"
                 action="Final approval. GM/MD clicks 'Approve Payment'. PCC status becomes 'Approved' and spend is deducted from PCR wallet."
                 actionTh="การอนุมัติขั้นสุดท้าย GM/MD กด 'Approve Payment' สถานะ PCC เปลี่ยนเป็น 'Approved' และยอดถูกหักออกจากกระเป๋า PCR"
+              />
+              <Step num={5}
+                title="Receive Back to PCR Wallet" titleTh="Receive กลับเข้ากระเป๋า PCR"
+                by="PM / AccountPay" byTh="ผู้จัดการโครงการ / บัญชีเจ้าหนี้" byColor="purple"
+                action="When approved PCC funds are received back into the PCR wallet, status displays as 'Receive' (purple)."
+                actionTh="เมื่อมีการรีซีฟยอด PCC กลับเข้ากระเป๋า PCR สถานะจะแสดงเป็น 'Receive' (สีม่วง)"
                 isLast
               />
             </div>
@@ -631,7 +638,7 @@ export function HelpPage() {
             <div className="flex flex-col gap-3 text-sm text-slate-700">
               <p>Visible to: <Badge color="purple">MD</Badge> <Badge color="blue">GM</Badge> <Badge color="emerald">PM</Badge> <Badge color="amber">AccountPay</Badge></p>
               <ul className="flex flex-col gap-2">
-                <li className="flex gap-2"><Plus size={14} className="text-blue-500 shrink-0 mt-0.5" /><span><strong>New PCR:</strong> PM selects their project, enters amount (THB), due date, and reason. Submitted to "Pending GM". / สร้าง PCR ใหม่: PM เลือกโครงการ กรอกจำนวนเงิน (บาท) วันครบกำหนด และเหตุผล ส่งไปที่ "Pending GM"</span></li>
+                <li className="flex gap-2"><Plus size={14} className="text-blue-500 shrink-0 mt-0.5" /><span><strong>New PCR:</strong> PM selects their project, enters amount (THB), due date, and reason. Submitted to "Pending GM". Amount fields in modal auto-format with comma while typing (e.g., 12,345.67). / สร้าง PCR ใหม่: PM เลือกโครงการ กรอกจำนวนเงิน (บาท) วันครบกำหนด และเหตุผล ส่งไปที่ "Pending GM" โดยช่องจำนวนเงินในโมดอลจะแสดง comma อัตโนมัติขณะพิมพ์</span></li>
                 <li className="flex gap-2"><ChevronDown size={14} className="text-slate-500 shrink-0 mt-0.5" /><span><strong>Expand Row:</strong> Click any PCR row to expand and see fund utilization bar, reason, audit trail, related notes, and available action buttons. / คลิกแถว PCR เพื่อขยายและดูแถบการใช้เงิน เหตุผล ประวัติ หมายเหตุ และปุ่มดำเนินการที่ใช้ได้</span></li>
                 <li className="flex gap-2"><Eye size={14} className="text-slate-500 shrink-0 mt-0.5" /><span><strong>Filters:</strong> Filter by Project or Status using the dropdowns at the top. PM sees only their own projects' PCRs. / กรองตามโครงการหรือสถานะโดยใช้ตัวกรอง PM จะเห็นเฉพาะ PCR ของโครงการตนเอง</span></li>
               </ul>
@@ -661,7 +668,7 @@ export function HelpPage() {
             <div className="flex flex-col gap-3 text-sm text-slate-700">
               <p>Visible to: <Badge color="purple">MD</Badge> <Badge color="blue">GM</Badge> <Badge color="emerald">PM</Badge> <Badge color="amber">AccountPay</Badge> <Badge color="orange">SiteAdmin</Badge></p>
               <ul className="flex flex-col gap-2">
-                <li className="flex gap-2"><Plus size={14} className="text-emerald-500 shrink-0 mt-0.5" /><span><strong>New PCC:</strong> SiteAdmin selects project → active PCR → adds line items. Each item needs description, amount, and reason. System shows PCR balance check automatically. / SiteAdmin เลือกโครงการ → PCR ที่ใช้งาน → เพิ่มรายการ แต่ละรายการต้องมีรายละเอียด จำนวนเงิน และเหตุผล ระบบแสดงการตรวจสอบยอดคงเหลือ PCR อัตโนมัติ</span></li>
+                <li className="flex gap-2"><Plus size={14} className="text-emerald-500 shrink-0 mt-0.5" /><span><strong>New PCC:</strong> SiteAdmin selects project → active PCR → adds line items. Each item needs description, amount, and reason. Amount fields in modal auto-format with comma while typing (e.g., 12,345.67). System shows PCR balance check automatically. / SiteAdmin เลือกโครงการ → PCR ที่ใช้งาน → เพิ่มรายการ แต่ละรายการต้องมีรายละเอียด จำนวนเงิน และเหตุผล โดยช่องจำนวนเงินในโมดอลจะแสดง comma อัตโนมัติขณะพิมพ์ ระบบแสดงการตรวจสอบยอดคงเหลือ PCR อัตโนมัติ</span></li>
                 <li className="flex gap-2"><AlertTriangle size={14} className="text-amber-500 shrink-0 mt-0.5" /><span><strong>Balance Guard:</strong> If the total PCC amount would exceed the PCR remaining balance, the Submit button is disabled. / หากยอดรวม PCC จะเกินยอดคงเหลือ PCR ปุ่มส่งจะถูกปิดใช้งาน</span></li>
                 <li className="flex gap-2"><ChevronDown size={14} className="text-slate-500 shrink-0 mt-0.5" /><span><strong>Expand Row:</strong> Shows the approval workflow stepper, line items table, audit trail, and action buttons. / แสดงขั้นตอนการอนุมัติ ตารางรายการ ประวัติการดำเนินการ และปุ่มดำเนินการ</span></li>
               </ul>
