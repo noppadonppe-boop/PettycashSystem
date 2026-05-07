@@ -101,10 +101,15 @@ export function MainLayout({ children }) {
 
   const notificationItems = useMemo(() => {
     const items = [];
+    const closingOrClosedStatuses = new Set(['Closure Requested', 'Closure Confirmed by AP', 'Closed']);
     const receivableByPcrId = new Set(
       pccs
         .filter((p) => p.status === 'Approved' && !!p.approvedByGM && !p.receivedToPcr)
         .map((p) => p.pcrId)
+        .filter((pcrId) => {
+          const pcr = pcrs.find((r) => r.id === pcrId);
+          return pcr && !closingOrClosedStatuses.has(pcr.status);
+        })
     );
 
     if (hasRole('GM', 'MD')) {

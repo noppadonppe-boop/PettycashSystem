@@ -504,7 +504,6 @@ export function PcrPage() {
       (hasRole('GM', 'MD') && pcr.status === PCR_STATUS.PENDING_GM) ||
       (hasRole('AccountPay') && pcr.status === PCR_STATUS.APPROVED) ||
       (hasRole('PM') && pcr.status === PCR_STATUS.GM_REJECTED) ||
-      (hasRole('PM') && pcr.status === PCR_STATUS.ACKNOWLEDGED) ||
       (pcr.status === PCR_STATUS.ACKNOWLEDGED && isReceiveOwner && hasReceivablePcc) ||
       (hasRole('AccountPay') && pcr.status === PCR_STATUS.CLOSURE_REQUESTED && amountToReturn >= 0) ||
       (hasRole('GM', 'MD') && pcr.status === PCR_STATUS.CLOSURE_CONFIRMED)
