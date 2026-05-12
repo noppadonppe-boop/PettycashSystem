@@ -62,45 +62,45 @@ function PcrDocument({ pcr, project }) {
   return (
     <div className="a4-page bg-white shadow-xl mx-auto print:shadow-none print:mx-0">
       {/* Header band */}
-      <div className="flex items-start justify-between pb-4 border-b-2 border-slate-800 mb-6">
+      <div className="flex items-start justify-between pb-3 border-b-2 border-slate-800 mb-4">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-blue-700 rounded-xl flex items-center justify-center shrink-0">
-            <Building2 size={24} className="text-white" />
+          <div className="w-10 h-10 bg-blue-700 rounded-xl flex items-center justify-center shrink-0">
+            <Building2 size={20} className="text-white" />
           </div>
           <div>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Construction Management Group</p>
-            <p className="text-xl font-black text-slate-900 leading-tight">CMG Petty Cash System</p>
-            <p className="text-[10px] text-slate-400">ระบบจัดการเงินสดย่อย</p>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-tight">Construction Management Group</p>
+            <p className="text-lg font-black text-slate-900 leading-tight">CMG Petty Cash System</p>
+            <p className="text-[9px] text-slate-400 leading-tight">ระบบจัดการเงินสดย่อย</p>
           </div>
         </div>
         <div className="text-right">
-          <div className="inline-block bg-blue-700 text-white px-4 py-2 rounded-xl">
-            <p className="text-xs font-semibold uppercase tracking-widest opacity-80">Document Type</p>
-            <p className="text-lg font-black tracking-wider">PCR</p>
-            <p className="text-[10px] opacity-80">ใบขอเงินสดย่อย</p>
+          <div className="inline-block bg-blue-700 text-white px-3 py-1.5 rounded-xl">
+            <p className="text-[10px] font-semibold uppercase tracking-widest opacity-80 leading-tight">Document Type</p>
+            <p className="text-base font-black tracking-wider leading-tight">PCR</p>
+            <p className="text-[9px] opacity-80 leading-tight">ใบขอเงินสดย่อย</p>
           </div>
         </div>
       </div>
 
       {/* Document ID & Status row */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div>
-          <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Document No. / เลขที่เอกสาร</p>
-          <p className="text-2xl font-black text-blue-700 tracking-wider font-mono">{pcr.id}</p>
+          <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider leading-tight">Document No. / เลขที่เอกสาร</p>
+          <p className="text-xl font-black text-blue-700 tracking-wider font-mono leading-tight">{pcr.id}</p>
         </div>
         <div className="text-right">
-          <p className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">Status / สถานะ</p>
+          <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider mb-0.5 leading-tight">Status / สถานะ</p>
           <StatusBadge status={pcr.status} />
         </div>
       </div>
 
       {/* Two-column info grid */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-2 gap-3 mb-2">
         <div className="border border-slate-200 rounded-xl overflow-hidden">
-          <div className="bg-slate-800 px-4 py-2">
-            <p className="text-xs font-bold text-white uppercase tracking-wider">Project Information / ข้อมูลโครงการ</p>
+          <div className="bg-slate-800 px-3 py-1.5">
+            <p className="text-[10px] font-bold text-white uppercase tracking-wider">Project Information / ข้อมูลโครงการ</p>
           </div>
-          <div className="p-4 flex flex-col gap-2.5">
+          <div className="p-3 flex flex-col gap-1.5">
             <InfoRow label="Project ID / รหัสโครงการ" value={project?.id ?? '—'} mono />
             <InfoRow label="Project Name / ชื่อโครงการ" value={project?.name ?? '—'} />
             <InfoRow label="Location / สถานที่" value={project?.location ?? '—'} />
@@ -109,10 +109,10 @@ function PcrDocument({ pcr, project }) {
           </div>
         </div>
         <div className="border border-slate-200 rounded-xl overflow-hidden">
-          <div className="bg-slate-800 px-4 py-2">
-            <p className="text-xs font-bold text-white uppercase tracking-wider">PCR Details / รายละเอียด PCR</p>
+          <div className="bg-slate-800 px-3 py-1.5">
+            <p className="text-[10px] font-bold text-white uppercase tracking-wider">PCR Details / รายละเอียด PCR</p>
           </div>
-          <div className="p-4 flex flex-col gap-2.5">
+          <div className="p-3 flex flex-col gap-1.5">
             <InfoRow label="Created Date / วันที่สร้าง" value={formatDate(pcr.date)} />
             <InfoRow label="Due Date / วันครบกำหนด" value={formatDate(pcr.dueDate)} />
             <InfoRow label="Created By / สร้างโดย" value={getUserName(users, pcr.createdBy)} />
@@ -123,49 +123,24 @@ function PcrDocument({ pcr, project }) {
       </div>
 
       {/* Reason */}
-      <div className="border border-slate-200 rounded-xl overflow-hidden mb-6">
-        <div className="bg-slate-100 px-4 py-2 border-b border-slate-200">
-          <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">Reason / Justification / เหตุผลและความจำเป็น</p>
+      <div className="border border-slate-200 rounded-xl overflow-hidden mb-2">
+        <div className="bg-slate-100 px-3 py-1.5 border-b border-slate-200">
+          <p className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Reason / Justification / เหตุผลและความจำเป็น</p>
         </div>
-        <div className="p-4">
-          <p className="text-sm text-slate-700 leading-relaxed">{pcr.reason}</p>
-        </div>
-      </div>
-
-      {/* Financial Summary */}
-      <div className="border border-blue-200 rounded-xl overflow-hidden mb-6">
-        <div className="bg-blue-700 px-4 py-2">
-          <p className="text-xs font-bold text-white uppercase tracking-wider">Financial Summary / สรุปการเงิน</p>
-        </div>
-        <div className="grid grid-cols-3 divide-x divide-blue-100">
-          <FinancialBox label="PCR Amount / วงเงิน PCR" value={formatCurrency(pcr.amount)} color="blue" />
-          <FinancialBox label="Approved Spend / เบิกจ่ายแล้ว" value={formatCurrency(approvedSpend)} color="emerald" />
-          <FinancialBox label="Remaining Balance / คงเหลือ" value={formatCurrency(remaining)} color={remaining < 0 ? 'rose' : 'slate'} />
-        </div>
-        {/* Utilization bar */}
-        <div className="px-4 py-3 border-t border-blue-100 bg-blue-50">
-          <div className="flex justify-between text-xs text-blue-700 font-medium mb-1.5">
-            <span>Fund Utilization / การใช้วงเงิน</span>
-            <span className="font-bold">{utilizationPct}%</span>
-          </div>
-          <div className="w-full bg-blue-200 rounded-full h-2.5">
-            <div
-              className={cn('h-2.5 rounded-full', utilizationPct >= 90 ? 'bg-rose-500' : utilizationPct >= 70 ? 'bg-amber-500' : 'bg-emerald-500')}
-              style={{ width: `${Math.min(utilizationPct, 100)}%` }}
-            />
-          </div>
+        <div className="p-3">
+          <p className="text-xs text-slate-700 leading-relaxed">{pcr.reason}</p>
         </div>
       </div>
 
       {/* Related PCCs */}
       {relatedPccs.length > 0 && (
-        <div className="border border-slate-200 rounded-xl overflow-hidden mb-6">
-          <div className="bg-slate-800 px-4 py-2">
-            <p className="text-xs font-bold text-white uppercase tracking-wider">
+        <div className="border border-slate-200 rounded-xl overflow-hidden mb-2">
+          <div className="bg-slate-800 px-3 py-1.5">
+            <p className="text-[10px] font-bold text-white uppercase tracking-wider">
               Related PCC Claims / ใบเบิกที่เกี่ยวข้อง ({relatedPccs.length})
             </p>
           </div>
-          <table className="w-full text-sm">
+          <table className="w-full text-xs">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
                 <Th>PCC No.</Th>
@@ -191,8 +166,8 @@ function PcrDocument({ pcr, project }) {
             </tbody>
             <tfoot>
               <tr className="bg-blue-50 border-t border-blue-200">
-                <td colSpan={3} className="px-4 py-2.5 text-xs font-bold text-blue-800 uppercase">Total PCCs / รวม PCC</td>
-                <td className="px-4 py-2.5 text-right text-sm font-black text-blue-800">
+                <td colSpan={3} className="px-3 py-1.5 text-[10px] font-bold text-blue-800 uppercase">Total PCCs / รวม PCC</td>
+                <td className="px-3 py-1.5 text-right text-[11px] font-black text-blue-800">
                   {formatCurrency(relatedPccs.reduce((s, p) => s + p.totalAmount, 0))}
                 </td>
                 <td />
@@ -242,45 +217,45 @@ function PccDocument({ pcc }) {
   return (
     <div className="a4-page bg-white shadow-xl mx-auto print:shadow-none print:mx-0">
       {/* Header band */}
-      <div className="flex items-start justify-between pb-4 border-b-2 border-slate-800 mb-6">
+      <div className="flex items-start justify-between pb-3 border-b-2 border-slate-800 mb-4">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-emerald-700 rounded-xl flex items-center justify-center shrink-0">
-            <Building2 size={24} className="text-white" />
+          <div className="w-10 h-10 bg-emerald-700 rounded-xl flex items-center justify-center shrink-0">
+            <Building2 size={20} className="text-white" />
           </div>
           <div>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Construction Management Group</p>
-            <p className="text-xl font-black text-slate-900 leading-tight">CMG Petty Cash System</p>
-            <p className="text-[10px] text-slate-400">ระบบจัดการเงินสดย่อย</p>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-tight">Construction Management Group</p>
+            <p className="text-lg font-black text-slate-900 leading-tight">CMG Petty Cash System</p>
+            <p className="text-[9px] text-slate-400 leading-tight">ระบบจัดการเงินสดย่อย</p>
           </div>
         </div>
         <div className="text-right">
-          <div className="inline-block bg-emerald-700 text-white px-4 py-2 rounded-xl">
-            <p className="text-xs font-semibold uppercase tracking-widest opacity-80">Document Type</p>
-            <p className="text-lg font-black tracking-wider">PCC</p>
-            <p className="text-[10px] opacity-80">ใบเบิกเงินสดย่อย</p>
+          <div className="inline-block bg-emerald-700 text-white px-3 py-1.5 rounded-xl">
+            <p className="text-[10px] font-semibold uppercase tracking-widest opacity-80 leading-tight">Document Type</p>
+            <p className="text-base font-black tracking-wider leading-tight">PCC</p>
+            <p className="text-[9px] opacity-80 leading-tight">ใบเบิกเงินสดย่อย</p>
           </div>
         </div>
       </div>
 
       {/* Document ID & Status row */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div>
-          <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Document No. / เลขที่เอกสาร</p>
-          <p className="text-2xl font-black text-emerald-700 tracking-wider font-mono">{pcc.id}</p>
+          <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider leading-tight">Document No. / เลขที่เอกสาร</p>
+          <p className="text-xl font-black text-emerald-700 tracking-wider font-mono leading-tight">{pcc.id}</p>
         </div>
         <div className="text-right">
-          <p className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">Status / สถานะ</p>
+          <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider mb-0.5 leading-tight">Status / สถานะ</p>
           <StatusBadge status={pcc.status} />
         </div>
       </div>
 
       {/* Two-column info grid */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-2 gap-3 mb-4">
         <div className="border border-slate-200 rounded-xl overflow-hidden">
-          <div className="bg-slate-800 px-4 py-2">
-            <p className="text-xs font-bold text-white uppercase tracking-wider">Project / PCR Reference</p>
+          <div className="bg-slate-800 px-3 py-1.5">
+            <p className="text-[10px] font-bold text-white uppercase tracking-wider">Project / PCR Reference</p>
           </div>
-          <div className="p-4 flex flex-col gap-2.5">
+          <div className="p-3 flex flex-col gap-1.5">
             <InfoRow label="Project / โครงการ" value={project?.name ?? '—'} />
             <InfoRow label="PCR No. / เลขที่ PCR" value={pcc.pcrId} mono />
             <InfoRow label="PCR Amount / วงเงิน PCR" value={pcr ? formatCurrency(pcr.amount) : '—'} />
@@ -288,10 +263,10 @@ function PccDocument({ pcc }) {
           </div>
         </div>
         <div className="border border-slate-200 rounded-xl overflow-hidden">
-          <div className="bg-slate-800 px-4 py-2">
-            <p className="text-xs font-bold text-white uppercase tracking-wider">Approval Trail / การอนุมัติ</p>
+          <div className="bg-slate-800 px-3 py-1.5">
+            <p className="text-[10px] font-bold text-white uppercase tracking-wider">Approval Trail / การอนุมัติ</p>
           </div>
-          <div className="p-4 flex flex-col gap-2.5">
+          <div className="p-3 flex flex-col gap-1.5">
             <InfoRow label="Submitted Date / วันที่ยื่น" value={formatDate(pcc.date)} />
             <InfoRow label="Submitted By / ยื่นโดย" value={getUserName(users, pcc.createdBy)} />
             {pcc.verifiedByPM && <InfoRow label="PM Verified / PM ตรวจสอบ" value={`${getUserName(users, pcc.verifiedByPM)} (${formatDate(pcc.verifiedByPMAt)})`} />}
@@ -302,15 +277,15 @@ function PccDocument({ pcc }) {
       </div>
 
       {/* Line items table */}
-      <div className="border border-slate-200 rounded-xl overflow-hidden mb-6">
-        <div className="bg-slate-800 px-4 py-2 flex items-center justify-between">
-          <p className="text-xs font-bold text-white uppercase tracking-wider">Line Items / รายการค่าใช้จ่าย</p>
-          <p className="text-xs text-slate-300">{items.length} รายการ</p>
+      <div className="border border-slate-200 rounded-xl overflow-hidden mb-4">
+        <div className="bg-slate-800 px-3 py-1.5 flex items-center justify-between">
+          <p className="text-[10px] font-bold text-white uppercase tracking-wider">Line Items / รายการค่าใช้จ่าย</p>
+          <p className="text-[10px] text-slate-300">{items.length} รายการ</p>
         </div>
-        <table className="w-full text-sm">
+        <table className="w-full text-xs">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200">
-              <Th width="5%">#</Th>
+              <Th width="5%" center>#</Th>
               <Th width="40%">Description / รายละเอียด</Th>
               <Th width="35%">Reason / เหตุผล</Th>
               <Th align="right" width="20%">Amount / จำนวน (฿)</Th>
@@ -328,10 +303,10 @@ function PccDocument({ pcc }) {
           </tbody>
           <tfoot>
             <tr className="bg-emerald-50 border-t-2 border-emerald-200">
-              <td colSpan={3} className="px-4 py-3 text-sm font-bold text-emerald-800 uppercase tracking-wider">
+              <td colSpan={3} className="px-3 py-1.5 text-[10px] font-bold text-emerald-800 uppercase tracking-wider">
                 Total Amount / จำนวนเงินรวมทั้งสิ้น
               </td>
-              <td className="px-4 py-3 text-right text-lg font-black text-emerald-800">
+              <td className="px-3 py-1.5 text-right text-[12px] font-black text-emerald-800">
                 {formatCurrency(pcc.totalAmount)}
               </td>
             </tr>
@@ -347,48 +322,6 @@ function PccDocument({ pcc }) {
         </div>
       )}
 
-      {/* Approval workflow steps visual */}
-      <div className="border border-slate-200 rounded-xl overflow-hidden mb-6">
-        <div className="bg-slate-100 px-4 py-2 border-b border-slate-200">
-          <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">Approval Workflow / ขั้นตอนการอนุมัติ</p>
-        </div>
-        <div className="grid grid-cols-4 divide-x divide-slate-200">
-          <WorkflowStep
-            step="1" role="SiteAdmin" roleTh="ผู้ดูแลไซต์"
-            action="Created / สร้าง"
-            by={getUserName(users, pcc.createdBy)}
-            date={formatDate(pcc.date)}
-            done
-          />
-          <WorkflowStep
-            step="2" role="PM" roleTh="ผู้จัดการโครงการ"
-            action="Verify / ตรวจสอบ"
-            by={pcc.verifiedByPM ? getUserName(users, pcc.verifiedByPM) : null}
-            date={pcc.verifiedByPMAt ? formatDate(pcc.verifiedByPMAt) : null}
-            done={!!pcc.verifiedByPM}
-            pending={pcc.status === PCC_STATUS.PENDING_PM}
-          />
-          <WorkflowStep
-            step="3" role="AccountPay" roleTh="บัญชีเจ้าหนี้"
-            action="Verify / ตรวจสอบ"
-            by={pcc.verifiedByAP ? getUserName(users, pcc.verifiedByAP) : null}
-            date={pcc.verifiedByAPAt ? formatDate(pcc.verifiedByAPAt) : null}
-            done={!!pcc.verifiedByAP}
-            pending={pcc.status === PCC_STATUS.PENDING_AP}
-            rejected={pcc.status === PCC_STATUS.AP_REJECTED}
-          />
-          <WorkflowStep
-            step="4" role="GM / MD" roleTh="ผู้จัดการใหญ่"
-            action="Approve / อนุมัติ"
-            by={pcc.approvedByGM ? getUserName(users, pcc.approvedByGM) : null}
-            date={pcc.approvedByGMAt ? formatDate(pcc.approvedByGMAt) : null}
-            done={!!pcc.approvedByGM}
-            pending={pcc.status === PCC_STATUS.PENDING_GM}
-            rejected={pcc.status === PCC_STATUS.GM_REJECTED}
-          />
-        </div>
-      </div>
-
       {/* Signature block */}
       <SignatureBlock pcc />
 
@@ -402,9 +335,9 @@ function PccDocument({ pcc }) {
 
 function InfoRow({ label, value, mono }) {
   return (
-    <div className="flex flex-col gap-0.5">
-      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">{label}</p>
-      <p className={cn('text-sm text-slate-800 font-medium', mono && 'font-mono text-blue-700')}>{value}</p>
+    <div className="flex flex-col">
+      <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider leading-none mb-0.5">{label}</p>
+      <p className={cn('text-xs text-slate-800 font-medium leading-none', mono && 'font-mono text-blue-700')}>{value}</p>
     </div>
   );
 }
@@ -417,20 +350,20 @@ function FinancialBox({ label, value, color }) {
     slate:   'text-slate-800 bg-white',
   };
   return (
-    <div className={cn('px-4 py-4 text-center', colors[color] || colors.slate)}>
-      <p className="text-[10px] font-semibold uppercase tracking-wider opacity-70 mb-1">{label}</p>
-      <p className="text-base font-black">{value}</p>
+    <div className={cn('px-2 py-2.5 text-center', colors[color] || colors.slate)}>
+      <p className="text-[9px] font-semibold uppercase tracking-wider opacity-70 mb-0.5 leading-none">{label}</p>
+      <p className="text-sm font-black leading-none">{value}</p>
     </div>
   );
 }
 
-function Th({ children, align = 'left', width }) {
+function Th({ children, align = 'left', width, center }) {
   return (
     <th
       style={width ? { width } : {}}
       className={cn(
-        'px-4 py-2.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider',
-        align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left'
+        'px-2 py-1 text-[9px] font-bold text-slate-500 uppercase tracking-wider',
+        align === 'right' ? 'text-right' : center ? 'text-center' : 'text-left'
       )}
     >
       {children}
@@ -442,9 +375,9 @@ function Td({ children, align = 'left', bold, mono, muted, center }) {
   return (
     <td
       className={cn(
-        'px-4 py-2.5 text-sm',
+        'px-2 py-1 text-[11px] leading-tight',
         align === 'right' ? 'text-right' : center ? 'text-center' : 'text-left',
-        bold ? 'font-bold text-slate-800' : muted ? 'text-slate-400' : 'text-slate-700',
+        bold ? 'font-bold text-slate-800' : muted ? 'text-slate-500' : 'text-slate-700',
         mono && 'font-mono'
       )}
     >
@@ -480,19 +413,19 @@ function SignatureBlock({ pcc }) {
     : ['Requested By / ผู้ขอ', 'PM Acknowledged / PM รับทราบ', 'GM Approved / GM อนุมัติ', 'AP Confirmed / AP ยืนยัน'];
 
   return (
-    <div className="border border-slate-200 rounded-xl overflow-hidden mb-6">
-      <div className="bg-slate-100 px-4 py-2 border-b border-slate-200">
-        <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">Authorized Signatures / ลายเซ็นผู้มีอำนาจ</p>
+    <div className="border border-slate-200 rounded-xl overflow-hidden mb-4">
+      <div className="bg-slate-100 px-3 py-1.5 border-b border-slate-200">
+        <p className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Authorized Signatures / ลายเซ็นผู้มีอำนาจ</p>
       </div>
       <div className="grid grid-cols-4 divide-x divide-slate-200">
         {cols.map((col) => (
-          <div key={col} className="p-4 flex flex-col items-center gap-3">
-            <div className="w-full h-12 border-b border-dashed border-slate-300 mt-2" />
+          <div key={col} className="p-2 flex flex-col items-center gap-1.5">
+            <div className="w-full h-8 border-b border-dashed border-slate-300 mt-1" />
             <div className="text-center">
-              <p className="text-[10px] font-bold text-slate-600 leading-tight">{col.split(' / ')[0]}</p>
-              <p className="text-[9px] text-slate-400">{col.split(' / ')[1]}</p>
+              <p className="text-[9px] font-bold text-slate-600 leading-none mb-0.5">{col.split(' / ')[0]}</p>
+              <p className="text-[8px] text-slate-400 leading-none">{col.split(' / ')[1]}</p>
             </div>
-            <p className="text-[9px] text-slate-400">Date / วันที่: ________________</p>
+            <p className="text-[8px] text-slate-400">Date: ______________</p>
           </div>
         ))}
       </div>
@@ -516,7 +449,7 @@ function DocumentFooter({ docId, printDate }) {
 
 // ─── Print Preview Modal ──────────────────────────────────────────────────────
 
-function PrintPreviewModal({ doc, onClose }) {
+export function PrintPreviewModal({ doc, onClose }) {
   if (!doc) return null;
   return createPortal(
     <div className="print-portal fixed inset-0 z-50 flex flex-col bg-slate-700/90 backdrop-blur-sm">
@@ -545,8 +478,8 @@ function PrintPreviewModal({ doc, onClose }) {
         </div>
       </div>
       {/* Scrollable preview area */}
-      <div className="print-portal-content flex-1 overflow-y-auto py-8">
-        <div id="print-area">
+      <div className="print-portal-content flex-1 overflow-auto py-8 bg-slate-800 flex justify-center items-start">
+        <div id="print-area" className="origin-top scale-[0.65] sm:scale-[0.85] lg:scale-100 print:scale-100 transition-transform">
           {doc.type === 'pcr' ? (
             <PcrDocument pcr={doc.data} project={doc.project} />
           ) : (
@@ -656,36 +589,27 @@ export function PrintPage() {
                 return (
                   <div
                     key={pcr.id}
-                    className="bg-white rounded-lg border border-slate-200 hover:border-blue-300 hover:shadow-sm transition-all"
+                    className="bg-white rounded-md border border-slate-200 hover:border-blue-300 hover:bg-slate-50 transition-colors"
                   >
-                    <div className="flex items-center gap-2 px-3 py-2">
-                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
-                        <FileText size={15} className="text-blue-600" />
-                      </div>
+                    <div className="flex items-center gap-2 px-2.5 py-1.5">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 min-w-0 whitespace-nowrap">
-                          <p className="text-[13px] font-bold text-blue-700 font-mono">{pcr.id}</p>
+                          <span className="text-[15px] font-bold text-blue-700 truncate">{project?.name || '-'}</span>
+                          <span className="text-[13px] font-mono font-normal text-slate-500">{pcr.id}</span>
                           <StatusBadge status={pcr.status} />
-                          <p className="text-[11px] text-slate-500 mt-0 truncate whitespace-nowrap min-w-0">
-                            {project?.name} • Due {formatDate(pcr.dueDate)}
+                          <p className="text-[11px] text-slate-500 truncate whitespace-nowrap leading-tight min-w-0">
+                            Due {formatDate(pcr.dueDate)} • {formatDate(pcr.date)}
                           </p>
                         </div>
                       </div>
-                      <div className="hidden md:flex items-center gap-4 text-right shrink-0">
-                        <div>
-                          <p className="text-[10px] text-slate-400">Amount / วงเงิน</p>
-                          <p className="text-[13px] font-bold text-slate-800">{formatCurrency(pcr.amount)}</p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] text-slate-400">Date / วันที่</p>
-                          <p className="text-[13px] text-slate-600">{formatDate(pcr.date)}</p>
-                        </div>
+                      <div className="text-right shrink-0 px-3">
+                        <p className="text-[13px] font-bold text-slate-800 whitespace-nowrap">{formatCurrency(pcr.amount)}</p>
                       </div>
                       <button
                         onClick={() => openPcrPreview(pcr)}
-                        className="flex items-center gap-1.5 h-8 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 rounded-lg transition-colors cursor-pointer shrink-0"
+                        className="flex items-center gap-1.5 h-7 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-semibold px-2.5 rounded transition-colors cursor-pointer shrink-0"
                       >
-                        <Printer size={13} /> Preview & Print
+                        <Printer size={12} /> Print
                       </button>
                     </div>
                   </div>
@@ -710,32 +634,27 @@ export function PrintPage() {
                 return (
                   <div
                     key={pcc.id}
-                    className="bg-white rounded-lg border border-slate-200 hover:border-emerald-300 hover:shadow-sm transition-all"
+                    className="bg-white rounded-md border border-slate-200 hover:border-emerald-300 hover:bg-slate-50 transition-colors"
                   >
-                    <div className="flex items-center gap-2 px-3 py-2">
-                      <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center shrink-0">
-                        <Receipt size={15} className="text-emerald-600" />
-                      </div>
+                    <div className="flex items-center gap-2 px-2.5 py-1.5">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 min-w-0 whitespace-nowrap">
-                          <p className="text-[13px] font-bold text-emerald-700 font-mono">{pcc.id}</p>
+                          <span className="text-[15px] font-bold text-blue-700 truncate">{project?.name || '-'}</span>
+                          <span className="text-[13px] font-mono font-normal text-orange-500">{pcc.id}</span>
                           <StatusBadge status={pcc.status} />
-                          <p className="text-[11px] text-slate-500 mt-0 truncate whitespace-nowrap min-w-0">
-                            {project?.name} • PCR: {pcc.pcrId} • {formatDate(pcc.date)}
+                          <p className="text-[11px] text-slate-500 truncate whitespace-nowrap leading-tight min-w-0">
+                            PCR: <span className="font-semibold text-slate-700">{pcc.pcrId}</span> • {formatDate(pcc.date)}
                           </p>
                         </div>
                       </div>
-                      <div className="hidden md:flex items-center gap-4 text-right shrink-0">
-                        <div>
-                          <p className="text-[10px] text-slate-400">Total / รวม</p>
-                          <p className="text-[13px] font-bold text-slate-800">{formatCurrency(pcc.totalAmount)}</p>
-                        </div>
+                      <div className="text-right shrink-0 px-3">
+                        <p className="text-[13px] font-bold text-slate-800 whitespace-nowrap">{formatCurrency(pcc.totalAmount)}</p>
                       </div>
                       <button
                         onClick={() => openPccPreview(pcc)}
-                        className="flex items-center gap-1.5 h-8 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 rounded-lg transition-colors cursor-pointer shrink-0"
+                        className="flex items-center gap-1.5 h-7 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold px-2.5 rounded transition-colors cursor-pointer shrink-0"
                       >
-                        <Printer size={13} /> Preview & Print
+                        <Printer size={12} /> Print
                       </button>
                     </div>
                   </div>

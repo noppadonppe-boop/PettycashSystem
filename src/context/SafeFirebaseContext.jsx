@@ -743,6 +743,7 @@ export function DataProvider({ children }) {
           approveEditPcc,
           saveEditPcc,
           deletePcc,
+          updatePccStatus,
           // Dashboard
           getTotalOutstandingCash,
           getUtilizationByProject,

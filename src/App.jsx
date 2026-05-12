@@ -13,6 +13,7 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { PendingApprovalPage } from './pages/PendingApprovalPage';
 import { AdminPanelPage } from './pages/AdminPanelPage';
+import { AAAPage } from './pages/AAAPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 function App() {
@@ -79,6 +80,16 @@ function App() {
                   <ProtectedRoute>
                     <MainLayout>
                       <PccPage />
+                    </MainLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/aaa"
+                element={
+                  <ProtectedRoute>
+                    <MainLayout>
+                      <AAAPage />
                     </MainLayout>
                   </ProtectedRoute>
                 }

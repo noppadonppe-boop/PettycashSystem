@@ -51,6 +51,13 @@ const NAV_ITEMS = [
     roles: ['MD', 'GM', 'PM', 'AccountPay', 'SiteAdmin', 'CM'],
   },
   {
+    label: 'ตาราง แยกแต่ละโครงการ',
+    labelTh: 'สรุปค่าใช้จ่าย',
+    icon: FileText,
+    path: '/aaa',
+    roles: ['MD', 'GM', 'PM', 'AccountPay', 'SiteAdmin'],
+  },
+  {
     label: 'System Guide',
     labelTh: 'คู่มือการใช้งาน',
     icon: HelpCircle,
