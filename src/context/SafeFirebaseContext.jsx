@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
-import { collection, doc, onSnapshot, serverTimestamp, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, onSnapshot, runTransaction, serverTimestamp, setDoc, deleteDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { 
   PCR_STATUS,
@@ -370,50 +370,80 @@ export function DataProvider({ children }) {
 
   const createPcc = useCallback(
     async (data, items, createdBy) => {
-      const pcrPccs = pccs.filter((p) => p.pcrId === data.pcrId);
-      const next = pcrPccs.length + 1;
-      const id = `${data.pcrId}-PCC-${String(next).padStart(3, '0')}`;
-      const totalAmount = items.reduce((s, i) => s + Number(i.amount), 0);
-      
-      const pcc = {
-        ...data,
-        id,
-        totalAmount,
-        status: PCC_STATUS.PENDING_PM,
-        rejectNote: '',
-        createdBy,
-        verifiedByPM: null,
-        verifiedByPMAt: null,
-        verifiedByAP: null,
-        verifiedByAPAt: null,
-        approvedByGM: null,
-        approvedByGMAt: null,
-      };
-      
-      // Update local state immediately
-      setPccs((prev) => [...prev, pcc]);
-      
-      // Create PCC items
-      const newItems = items.map((item, idx) => ({
-        ...item,
-        id: `ITEM-${Date.now()}-${idx}`,
-        pccId: id,
-        amount: Number(item.amount),
-      }));
-      
-      setPccItems((prev) => [...prev, ...newItems]);
-      
-      // Save to Firebase in background
-      await saveToFirebase('pccs', id, pcc);
-      
-      // Save PCC items to Firebase
-      for (const item of newItems) {
-        await saveToFirebase('pccItems', item.id, item);
+      if (!authUid) {
+        setError('Not authenticated, PCC was not created.');
+        return null;
       }
-      
-      return pcc;
+
+      const pcrPccs = pccs.filter((p) => p.pcrId === data.pcrId);
+      const idPrefix = `${data.pcrId}-PCC-`;
+      const highestExistingNumber = pcrPccs.reduce((highest, pcc) => {
+        if (!pcc.id?.startsWith(idPrefix)) return highest;
+        const sequence = Number.parseInt(pcc.id.slice(idPrefix.length), 10);
+        return Number.isNaN(sequence) ? highest : Math.max(highest, sequence);
+      }, 0);
+      const totalAmount = items.reduce((s, i) => s + Number(i.amount), 0);
+
+      try {
+        const result = await runTransaction(db, async (transaction) => {
+          let sequence = highestExistingNumber + 1;
+          let id;
+          let pccRef;
+
+          // The realtime snapshot can be stale, so confirm the candidate ID in
+          // Firestore. A transaction retry also prevents concurrent creators
+          // from reserving the same PCC number.
+          while (true) {
+            id = `${idPrefix}${String(sequence).padStart(3, '0')}`;
+            pccRef = doc(db, `${ROOT_COLLECTION}/${ROOT_DOC}/pccs/${id}`);
+            const existingPcc = await transaction.get(pccRef);
+            if (!existingPcc.exists()) break;
+            sequence += 1;
+          }
+
+          const pcc = {
+            ...data,
+            id,
+            totalAmount,
+            status: PCC_STATUS.PENDING_PM,
+            rejectNote: '',
+            createdBy,
+            verifiedByPM: null,
+            verifiedByPMAt: null,
+            verifiedByAP: null,
+            verifiedByAPAt: null,
+            approvedByGM: null,
+            approvedByGMAt: null,
+          };
+          const newItems = items.map((item, idx) => ({
+            ...item,
+            id: `${id}-ITEM-${String(idx + 1).padStart(3, '0')}`,
+            pccId: id,
+            amount: Number(item.amount),
+          }));
+
+          transaction.set(pccRef, { ...pcc, updatedAt: serverTimestamp() });
+          for (const item of newItems) {
+            const itemRef = doc(db, `${ROOT_COLLECTION}/${ROOT_DOC}/pccItems/${item.id}`);
+            transaction.set(itemRef, { ...item, updatedAt: serverTimestamp() });
+          }
+
+          return { pcc, newItems };
+        });
+
+        setPccs((prev) => [...prev.filter((p) => p.id !== result.pcc.id), result.pcc]);
+        setPccItems((prev) => {
+          const newItemIds = new Set(result.newItems.map((item) => item.id));
+          return [...prev.filter((item) => !newItemIds.has(item.id)), ...result.newItems];
+        });
+        return result.pcc;
+      } catch (err) {
+        console.error('Error creating PCC:', err);
+        setError(`Failed to create PCC: ${err.message}`);
+        return null;
+      }
     },
-    [pccs, saveToFirebase]
+    [authUid, db, pccs]
   );
 
   const updatePccStatus = useCallback(async (id, updates) => {

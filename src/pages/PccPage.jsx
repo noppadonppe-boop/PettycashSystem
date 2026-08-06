@@ -788,9 +788,9 @@ export function PccPage() {
   const activePccs = visiblePccs.filter((p) => !p.receivedToPcr);
   const doneProcessPccs = visiblePccs.filter((p) => p.receivedToPcr);
 
-  const handleCreate = (data, items) => {
-    createPcc(data, items, currentUser.id);
-    setShowCreate(false);
+  const handleCreate = async (data, items) => {
+    const createdPcc = await createPcc(data, items, currentUser.id);
+    if (createdPcc) setShowCreate(false);
   };
 
   const canBlinkPcc = (pcc) => {
